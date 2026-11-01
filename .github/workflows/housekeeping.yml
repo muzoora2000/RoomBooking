@@ -1,0 +1,31 @@
+name: Daily housekeeping
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: campus-housekeeping
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ secrets.RENDER_API_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate configuration
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Set repository secrets RENDER_API_URL (for example https://campus-api.onrender.com) and CRON_SECRET." >&2
+            exit 1
+          fi
+      - name: Run retention cleanup
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            -X POST "$API_BASE_URL/api/internal/housekeeping" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}'

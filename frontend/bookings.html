@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b57">
+  <title>My bookings | Campus Compass</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/config.js"></script>
+</head>
+<body data-page="bookings">
+  <header id="topbar"></header>
+  <main class="page narrow">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Your schedule</div>
+        <h1>My bookings</h1>
+        <p class="muted">Manage room reservations, join online sessions, and check in when you arrive.</p>
+      </div>
+      <a class="btn" href="schedule.html">New booking</a>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="upcoming" aria-selected="true">Upcoming</button>
+      <button type="button" class="tab" data-tab="past" aria-selected="false">Past</button>
+      <button type="button" class="tab" data-tab="pending" aria-selected="false">Pending</button>
+      <button type="button" class="tab" data-tab="cancelled" aria-selected="false">Cancelled</button>
+    </div>
+
+    <div id="bookings-list"></div>
+    <button class="btn secondary wide hidden" type="button" id="load-more">Load more</button>
+  </main>
+  <nav id="bottom-nav"></nav>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/bookings.js"></script>
+</body>
+</html>

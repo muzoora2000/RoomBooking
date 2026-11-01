@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b57">
+  <meta name="campus-api-base" content="">
+  <title>Activate account | Campus Compass</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/config.js"></script>
+</head>
+<body data-page="activate" data-no-chrome>
+  <main class="auth-wrap">
+    <div class="auth-card">
+      <a class="brand auth-logo" href="index.html">
+        <span class="brand-mark">C</span>
+        <span>Campus Compass<small>Find. Book. Arrive.</small></span>
+      </a>
+      <section class="card">
+        <div class="eyebrow">Account activation</div>
+        <h1 style="font-size:1.8rem">Set up your campus account</h1>
+        <p class="muted" id="activate-intro">Choose a password and optional check-in PIN to activate your account.</p>
+        <div class="notice danger hidden" id="activate-missing">This activation link is missing a token. Ask your registry or department administrator for a new link.</div>
+        <form id="activate-form" novalidate>
+          <div class="field">
+            <label for="activate-password">New password</label>
+            <input id="activate-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+            <p class="hint">At least 8 characters, including a letter and a number.</p>
+          </div>
+          <div class="field">
+            <label for="activate-confirm">Confirm password</label>
+            <input id="activate-confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required>
+          </div>
+          <div class="field">
+            <label for="activate-pin">Optional check-in PIN</label>
+            <input id="activate-pin" name="pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="4 to 8 digits">
+            <p class="hint">A PIN lets you sign in and use kiosks without waiting for a one-time code.</p>
+          </div>
+          <label class="check" style="margin:.9rem 0 1rem">
+            <input type="checkbox" name="consent" required>
+            <span>I understand that my account activity, bookings, and attendance are recorded for campus operations and safety.</span>
+          </label>
+          <p class="error-text hidden" id="activate-error" role="alert"></p>
+          <button class="btn wide" type="submit" id="activate-submit">Activate my account</button>
+        </form>
+        <p class="center small" style="margin-top:.9rem"><a href="login.html">Back to sign in</a></p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/activate.js"></script>
+</body>
+</html>

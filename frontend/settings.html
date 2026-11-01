@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b57">
+  <title>Settings | Campus Compass</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/config.js"></script>
+</head>
+<body data-page="settings">
+  <header id="topbar"></header>
+  <main class="page narrow">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Your account</div>
+        <h1>Settings</h1>
+        <p class="muted">Profile, study mode, security, devices, and privacy controls.</p>
+      </div>
+      <button class="btn ghost" type="button" data-logout>Sign out</button>
+    </div>
+
+    <section class="card" id="profile-card">
+      <h2>Profile</h2>
+      <div id="profile-summary"></div>
+      <form id="profile-form" style="margin-top:.8rem">
+        <div class="field">
+          <label for="profile-phone">Phone number</label>
+          <input id="profile-phone" name="phone" type="tel" placeholder="+256 7XX XXX XXX" autocomplete="tel">
+          <p class="hint">Used for account alerts and optional SMS access links.</p>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="sms-opt-in" name="sms_link_opt_in">
+          <span>Send online class links by SMS (when I opt in)</span>
+        </label>
+        <label class="check hidden" id="consent-row">
+          <input type="checkbox" id="consent" name="consent">
+          <span>I agree to the acceptable use and privacy policy for campus facilities.</span>
+        </label>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn" type="submit">Save profile</button>
+      </form>
+    </section>
+
+    <section class="card" id="study-mode-card">
+      <h2>Study mode</h2>
+      <div id="study-mode-summary"></div>
+      <div class="card-actions">
+        <button class="btn secondary" type="button" id="request-mode">Request a change</button>
+      </div>
+      <div id="mode-requests" style="margin-top:.8rem"></div>
+    </section>
+
+    <section class="card">
+      <h2>Personal QR</h2>
+      <p class="muted small">Show this to staff at a check-in kiosk. It rotates every 30 seconds and cannot be used after it expires.</p>
+      <button class="btn secondary" type="button" id="show-qr">Show my code</button>
+      <div id="qr-panel" class="hidden" style="margin-top:.9rem;text-align:center">
+        <img id="qr-image" alt="Your rotating personal QR code" width="240" height="240" style="border-radius:14px;border:1px solid var(--line);max-width:100%">
+        <p class="small muted" id="qr-expiry"></p>
+        <button class="btn ghost small" type="button" id="hide-qr">Hide code</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Password</h2>
+      <form id="password-form">
+        <div class="field">
+          <label for="current-password">Current password</label>
+          <input id="current-password" name="current_password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="new-password">New password</label>
+          <input id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+          <p class="hint">At least 8 characters with a letter and a number. Other sessions will be signed out.</p>
+        </div>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn" type="submit">Change password</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Check-in PIN</h2>
+      <p class="muted small">Use a 4 to 8 digit PIN for quick verification at the door without waiting for an email code.</p>
+      <form id="pin-form">
+        <div class="field">
+          <label for="pin-password">Current password</label>
+          <input id="pin-password" name="current_password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="new-pin">New PIN</label>
+          <input id="new-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" required>
+        </div>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn secondary" type="submit">Set PIN</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="row space-between">
+        <h2>Trusted devices</h2>
+        <button class="btn ghost small" type="button" id="refresh-devices">Refresh</button>
+      </div>
+      <div id="devices-list"></div>
+      <h2 style="margin-top:1.2rem">Active sessions</h2>
+      <div id="sessions-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Notification preferences</h2>
+      <p class="muted small">Choose how each kind of update reaches you. Critical security alerts are always sent in-app and by email.</p>
+      <form id="preferences-form">
+        <div id="preferences-grid"></div>
+        <button class="btn secondary" type="submit">Save preferences</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Privacy and data</h2>
+      <p class="muted small">Download a copy of your account data or ask the university to process a privacy request. Deletion requests are reviewed before data is removed.</p>
+      <div class="card-actions">
+        <button class="btn secondary" type="button" id="download-data">Download my data</button>
+        <button class="btn ghost" type="button" id="request-export">Request formal export</button>
+        <button class="btn ghost danger-text" type="button" id="request-deletion">Request deletion</button>
+      </div>
+      <div id="data-requests" style="margin-top:.9rem"></div>
+    </section>
+
+    <section class="card">
+      <h2>Sign out</h2>
+      <p class="muted small">Signing out ends this session on this device. Other trusted devices stay signed in until you revoke them.</p>
+      <button class="btn danger" type="button" data-logout>Sign out of this device</button>
+    </section>
+  </main>
+  <nav id="bottom-nav"></nav>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/settings.js"></script>
+</body>
+</html>

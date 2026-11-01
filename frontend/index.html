@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b57">
+  <meta name="campus-api-base" content="">
+  <meta name="description" content="Find and book lecture rooms, discussion rooms, and labs, then join lectures and check in.">
+  <title>Home | Campus Compass</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/config.js"></script>
+</head>
+<body data-page="home">
+  <header id="topbar"></header>
+  <main class="page">
+    <section id="guest-home" class="hidden">
+      <div class="card card-soft" style="padding:1.6rem">
+        <div class="eyebrow" style="color:#c5f1e3">Campus Compass</div>
+        <h1 style="max-width:15ch">Know the room. Own the day.</h1>
+        <p style="max-width:56ch;color:rgba(255,255,255,.82)">Find the right space, see what is free, book in seconds, join online lectures, and check in when you arrive.</p>
+        <div class="btn-row">
+          <a class="btn secondary" href="login.html">Sign in</a>
+          <a class="btn ghost" href="login.html" style="color:#fff">Scan my ID card</a>
+        </div>
+      </div>
+      <div class="grid three" style="margin-top:1rem">
+        <article class="card"><div class="item-icon">?</div><h3>Find any space</h3><p class="muted">Search by building, room, capacity, or equipment with live availability.</p></article>
+        <article class="card"><div class="item-icon">+</div><h3>Book without clashes</h3><p class="muted">Priority rules, capacity checks, approvals, and fair access are handled for you.</p></article>
+        <article class="card"><div class="item-icon">!</div><h3>Arrive verified</h3><p class="muted">Rotating QR check-in confirms attendance without collecting unnecessary location data.</p></article>
+      </div>
+    </section>
+
+    <section id="member-home" class="hidden">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow" id="today-label"></div>
+          <h1 id="greeting">Hello</h1>
+          <p class="muted" id="greeting-sub">Here is what is happening on campus today.</p>
+        </div>
+        <a class="btn" href="rooms.html">Find a room</a>
+      </div>
+
+      <div class="stats" id="overview-stats">
+        <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+
+      <div class="split" style="margin-top:1rem">
+        <div>
+          <section class="card">
+            <div class="card-head">
+              <div><div class="eyebrow">Next up</div><h2>Upcoming lectures</h2></div>
+              <a class="btn ghost small" href="lectures.html">All lectures</a>
+            </div>
+            <div id="next-lectures"><div class="skeleton"></div><div class="skeleton"></div></div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <div><div class="eyebrow">Your spaces</div><h2>Upcoming bookings</h2></div>
+              <a class="btn ghost small" href="bookings.html">My bookings</a>
+            </div>
+            <div id="next-bookings"><div class="skeleton"></div></div>
+          </section>
+        </div>
+
+        <aside>
+          <section class="card">
+            <div class="card-head"><h2>Quick actions</h2></div>
+            <div class="list">
+              <a class="list-item" href="rooms.html"><span class="item-icon">R</span><span class="main"><h3>Browse rooms</h3><p>Live availability and campus map</p></span></a>
+              <a class="list-item" href="schedule.html"><span class="item-icon">B</span><span class="main"><h3>Book a space</h3><p>Room or online session</p></span></a>
+              <a class="list-item" href="notifications.html"><span class="item-icon">N</span><span class="main"><h3>Notifications</h3><p id="quick-unread">Updates and reminders</p></span></a>
+              <a class="list-item" href="settings.html"><span class="item-icon">S</span><span class="main"><h3>My campus pass</h3><p>Rotating QR, PIN, and account</p></span></a>
+            </div>
+          </section>
+          <section class="card" id="semester-card">
+            <div class="eyebrow">Current semester</div>
+            <h3 id="semester-name">Loading...</h3>
+            <p class="muted small" id="semester-dates"></p>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <nav id="bottom-nav"></nav>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/home.js"></script>
+</body>
+</html>

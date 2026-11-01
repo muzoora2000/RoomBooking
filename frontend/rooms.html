@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b57">
+  <meta name="campus-api-base" content="">
+  <title>Find a room | Campus Compass</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/config.js"></script>
+</head>
+<body data-page="rooms">
+  <header id="topbar"></header>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Campus spaces</div>
+        <h1>Find a room</h1>
+        <p class="muted">Search live availability, equipment, and locations across campus.</p>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn secondary" id="scan-room">Scan room QR</button>
+        <a class="btn" href="schedule.html">Book a space</a>
+      </div>
+    </div>
+
+    <form class="filters" id="room-filters">
+      <input type="search" name="q" placeholder="Search building, room, or location" aria-label="Search rooms">
+      <select name="category" id="category-filter" aria-label="Room type">
+        <option value="">All room types</option>
+      </select>
+      <input type="number" name="min_capacity" min="1" placeholder="Minimum capacity" aria-label="Minimum capacity">
+      <input type="search" name="equipment" placeholder="Equipment e.g. projector" aria-label="Equipment">
+      <button class="btn secondary" type="submit">Search</button>
+      <button class="btn ghost" type="button" id="clear-filters">Clear</button>
+    </form>
+
+    <div class="card-head" style="margin-bottom:.7rem">
+      <p class="muted small" id="room-count" style="margin:0">Loading rooms...</p>
+      <div class="btn-row">
+        <button class="chip" type="button" data-view="list" aria-pressed="true">List</button>
+        <button class="chip" type="button" data-view="map" aria-pressed="false">Map</button>
+      </div>
+    </div>
+
+    <div id="rooms-list" class="grid two"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    <div id="rooms-map-wrap" class="hidden">
+      <div class="map" id="rooms-map" aria-label="Map of campus rooms"></div>
+      <p class="hint">Tap a pin to open the room. Map data is provided by OpenStreetMap.</p>
+    </div>
+  </main>
+  <nav id="bottom-nav"></nav>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/rooms.js"></script>
+</body>
+</html>

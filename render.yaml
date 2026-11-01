@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: campus-booking-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: OTP_PEPPER
+        sync: false
+      - key: OTP_EXPIRY_MINUTES
+        value: "5"
+      - key: FRONTEND_URL
+        sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_SENDER_ID
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: QR_SIGNING_SECRET
+        sync: false
+      - key: DOOR_TOKEN_SECRET
+        sync: false
+      - key: APP_TIMEZONE
+        value: Africa/Kampala
+      - key: PGSSL
+        value: require
+      - key: TRUST_DEVICE_DAYS
+        value: "30"
+      - key: STEP_UP_HOURS
+        value: "8"

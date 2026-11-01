@@ -1,0 +1,32 @@
+{
+  "name": "Campus Compass",
+  "short_name": "Campus",
+  "description": "Find rooms, book spaces, join lectures, and check in across campus.",
+  "id": "/",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f7f6",
+  "theme_color": "#0b6b57",
+  "categories": ["education", "navigation", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Find a room", "url": "/rooms.html", "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "My bookings", "url": "/bookings.html", "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "My lectures", "url": "/lectures.html", "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ]
+}

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b57">
+  <meta name="campus-api-base" content="">
+  <title>Book a space | Campus Compass</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/config.js"></script>
+</head>
+<body data-page="schedule">
+  <header id="topbar"></header>
+  <main class="page narrow">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">New booking</div>
+        <h1>Book a space</h1>
+        <p class="muted">Choose a room, set the time, and let Campus Compass check availability and rules.</p>
+      </div>
+      <a class="btn ghost" href="bookings.html">My bookings</a>
+    </div>
+
+    <form id="booking-form" class="card" novalidate>
+      <div class="field">
+        <label for="module-id">What is this for?</label>
+        <select id="module-id" name="module_id">
+          <option value="">General room use (no module)</option>
+        </select>
+        <p class="hint">Lecture rooms and labs require a module session. Students can book discussion rooms and the library.</p>
+      </div>
+
+      <div class="field" id="purpose-field">
+        <label for="purpose">Purpose</label>
+        <input id="purpose" name="purpose" maxlength="1000" placeholder="e.g. Group discussion for BCS 2201">
+      </div>
+
+      <div class="field">
+        <label for="facility-id">Room</label>
+        <select id="facility-id" name="facility_id" required>
+          <option value="">Loading rooms...</option>
+        </select>
+        <p class="hint" id="facility-hint">Search results are ordered by building and room.</p>
+      </div>
+
+      <div id="facility-preview"></div>
+
+      <div class="field" id="mode-field">
+        <label for="session-mode">Session mode</label>
+        <select id="session-mode" name="session_mode">
+          <option value="physical">In person</option>
+          <option value="online">Online only</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+
+      <div id="online-fields" class="hidden">
+        <div class="field">
+          <label for="online-platform">Online platform</label>
+          <select id="online-platform" name="online_platform">
+            <option value="zoom">Zoom</option>
+            <option value="google_meet">Google Meet</option>
+            <option value="teams">Microsoft Teams</option>
+            <option value="other">Other approved platform</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="online-link">Meeting link</label>
+          <input id="online-link" name="online_link" type="url" placeholder="https://..." autocomplete="off">
+          <p class="hint">Approved domains only. The link is never shown on public room displays.</p>
+        </div>
+        <div class="field">
+          <label for="meeting-passcode">Meeting passcode (optional)</label>
+          <input id="meeting-passcode" name="meeting_passcode" maxlength="200" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="booking-date">Date</label>
+          <input id="booking-date" name="date" type="date" required>
+        </div>
+        <div class="field">
+          <span class="small muted" id="timezone-label">Africa/Kampala time</span>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="start-time">Start time</label>
+          <input id="start-time" name="start_time" type="time" step="300" required>
+        </div>
+        <div class="field">
+          <label for="end-time">End time</label>
+          <input id="end-time" name="end_time" type="time" step="300" required>
+        </div>
+      </div>
+
+      <div id="availability-preview" style="margin-bottom:.9rem"></div>
+
+      <label class="check" style="margin:.8rem 0">
+        <input type="checkbox" id="recurring-toggle">
+        <span>Repeat weekly</span>
+      </label>
+      <div class="field-row hidden" id="recurring-fields">
+        <div class="field">
+          <label for="repeat-count">Number of weeks</label>
+          <input id="repeat-count" name="repeat_count" type="number" min="2" max="52" value="4">
+        </div>
+        <div class="field">
+          <span class="small muted" style="display:block;margin-top:1.8rem">Only weekly repeats are supported.</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="booking-reason">Note to approver (optional)</label>
+        <textarea id="booking-reason" name="reason" maxlength="1000" rows="2"></textarea>
+      </div>
+
+      <p class="error-text hidden" id="booking-error" role="alert"></p>
+      <button class="btn wide" type="submit" id="booking-submit">Check and book</button>
+      <p class="hint center">Bookings may need approval for some rooms. Live changes require a recent identity check.</p>
+    </form>
+  </main>
+  <nav id="bottom-nav"></nav>
+  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/pages/schedule.js"></script>
+</body>
+</html>

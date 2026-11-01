@@ -5,6 +5,7 @@ services:
     rootDir: backend
     plan: free
     buildCommand: npm ci --omit=dev
+    preDeployCommand: node src/db/migrate.js
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true

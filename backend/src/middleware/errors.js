@@ -43,6 +43,7 @@ export function errorHandler(error, req, res, next) {
   return res.status(500).json({
     error: 'An unexpected server error occurred.',
     code: 'INTERNAL_ERROR',
-    details: process.env.NODE_ENV === 'production' ? undefined : { message: error.message }
+    // Temporarily exposing details to diagnose persistent settings error — remove after fix
+    details: { message: error.message, url: req.originalUrl }
   });
 }

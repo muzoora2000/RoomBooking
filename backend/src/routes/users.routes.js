@@ -58,6 +58,8 @@ router.get(
        WHERE u.id = $1`,
       [req.user.id]
     );
+    const user = result.rows[0];
+    if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User account not found.');
     const reps = await query(
       `SELECT cr.id, cr.class_id, cr.is_deputy, cr.is_active, c.code AS class_code, c.name AS class_name,
               s.name AS semester_name
@@ -70,7 +72,7 @@ router.get(
     );
     const semester = await getCurrentSemester();
     res.json({
-      ...result.rows[0],
+      ...user,
       rep_roles: reps.rows,
       current_semester: semester
         ? { id: semester.id, name: semester.name, start_date: semester.start_date, end_date: semester.end_date }
@@ -177,6 +179,7 @@ router.get(
       [req.user.id]
     );
     const user = result.rows[0];
+    if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User account not found.');
     if (!user.qr_active) throw new AppError(403, 'QR_DEACTIVATED', 'Your personal QR has been deactivated.');
     const personal = await issuePersonalQr(user);
     const image = await generateQrDataUrl(personal.content, { margin: 1, width: 320 });

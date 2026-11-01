@@ -221,6 +221,7 @@ export function cachedUser() {
 
 export function mountChrome(active = '') {
   const user = cachedUser();
+  const loggedIn = Boolean(localStorage.getItem('campus.token'));
   const admin = user && ['department_admin', 'super_admin'].includes(user.role);
   const top = document.getElementById('topbar');
   if (top) {
@@ -232,24 +233,34 @@ export function mountChrome(active = '') {
           <span>Campus Compass<small>Find. Book. Arrive.</small></span>
         </a>
         <div class="top-actions">
-          <a class="icon-btn" href="notifications.html" aria-label="Notifications">
-            ${icon('bell')}<span class="badge-dot hidden" id="notif-count">0</span>
-          </a>
-          ${admin ? `<a class="icon-btn" href="admin.html" aria-label="Administration">${icon('shield')}</a>` : ''}
-          <a class="icon-btn" href="settings.html" aria-label="Settings">${icon('settings')}</a>
+          ${loggedIn ? `
+            <a class="icon-btn" href="notifications.html" aria-label="Notifications">
+              ${icon('bell')}<span class="badge-dot hidden" id="notif-count">0</span>
+            </a>
+            ${admin ? `<a class="icon-btn" href="admin.html" aria-label="Administration">${icon('shield')}</a>` : ''}
+            <a class="icon-btn" href="settings.html" aria-label="Settings">${icon('settings')}</a>
+          ` : `
+            <a class="btn secondary small" href="login.html" style="font-size:.85rem;padding:.4rem .9rem">Sign in</a>
+          `}
         </div>
       </div>`;
   }
   const nav = document.getElementById('bottom-nav');
   if (nav) {
     nav.className = 'bottom-nav';
-    const items = [
-      ['index.html', 'home', 'Home', 'home'],
-      ['rooms.html', 'rooms', 'Rooms', 'search'],
-      ['lectures.html', 'lectures', 'Lectures', 'video'],
-      ['bookings.html', 'bookings', 'Bookings', 'calendar'],
-      ['settings.html', 'settings', 'Settings', 'settings']
-    ];
+    const items = loggedIn
+      ? [
+          ['index.html', 'home', 'Home', 'home'],
+          ['rooms.html', 'rooms', 'Rooms', 'search'],
+          ['lectures.html', 'lectures', 'Lectures', 'video'],
+          ['bookings.html', 'bookings', 'Bookings', 'calendar'],
+          ['settings.html', 'settings', 'Settings', 'settings']
+        ]
+      : [
+          ['index.html', 'home', 'Home', 'home'],
+          ['rooms.html', 'rooms', 'Rooms', 'search'],
+          ['login.html', 'login', 'Sign in', 'user']
+        ];
     nav.innerHTML = items.map(([href, key, label, iconName]) => (
       `<a href="${href}" class="${active === key ? 'active' : ''}" ${active === key ? 'aria-current="page"' : ''}>
         <span>${icon(iconName)}</span><span>${label}</span>

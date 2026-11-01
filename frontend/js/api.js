@@ -44,12 +44,19 @@ export function queryString(params = {}) {
 
 function parseError(payload, status) {
   if (payload && typeof payload === 'object') {
-    const error = payload.error || payload;
-    return {
-      message: error.message || payload.message || `Request failed (${status})`,
-      code: error.code || payload.code || 'REQUEST_FAILED',
-      details: error.details ?? payload.details ?? null
-    };
+    const message =
+      (typeof payload.error === 'string' ? payload.error : payload.error?.message) ||
+      (typeof payload.message === 'string' ? payload.message : null) ||
+      `Request failed (${status})`;
+    const code =
+      (typeof payload.error === 'object' && payload.error?.code) ||
+      payload.code ||
+      'REQUEST_FAILED';
+    const details =
+      (typeof payload.error === 'object' && payload.error?.details) ??
+      payload.details ??
+      null;
+    return { message, code, details };
   }
   return { message: `Request failed (${status})`, code: 'REQUEST_FAILED', details: null };
 }

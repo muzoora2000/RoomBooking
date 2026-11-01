@@ -63,8 +63,8 @@
           <p class="muted" id="otp-delivery">We sent a 6-digit code to your registered contact.</p>
           <form id="otp-form" novalidate>
             <div class="field">
-              <label for="otp-code">6-digit code</label>
-              <input id="otp-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required>
+              <label for="otp-code">6-digit code or PIN</label>
+              <input id="otp-code" name="code" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="one-time-code" placeholder="Enter code or PIN" required>
             </div>
             <label class="check" style="margin-bottom:.8rem">
               <input type="checkbox" name="trust_device" value="true">

@@ -110,18 +110,37 @@ otpForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   setError(otpError, '');
   const code = String(new FormData(otpForm).get('code') || '').trim();
-  if (!/^\d{6}$/.test(code)) {
-    setError(otpError, 'Enter the 6-digit code.');
+  if (!/^\d{4,8}$/.test(code)) {
+    setError(otpError, 'Enter the 6-digit code or your PIN.');
     return;
   }
+  const trustDevice = new FormData(otpForm).get('trust_device') === 'true';
   setButtonLoading(otpSubmit, true, 'Verifying...');
   try {
-    const result = await verifyOtp({
-      otpId: state.otpId,
-      code,
-      trustDevice: new FormData(otpForm).get('trust_device') === 'true',
-      deviceId
-    });
+    let result;
+    try {
+      result = await verifyOtp({
+        otpId: state.otpId,
+        code,
+        trustDevice,
+        deviceId
+      });
+    } catch (otpErr) {
+      if (state.pinAvailable) {
+        try {
+          result = await verifyPin({
+            otpId: state.otpId,
+            pin: code,
+            trustDevice,
+            deviceId
+          });
+        } catch {
+          throw otpErr;
+        }
+      } else {
+        throw otpErr;
+      }
+    }
     complete(result);
   } catch (error) {
     setError(otpError, errorMessage(error));

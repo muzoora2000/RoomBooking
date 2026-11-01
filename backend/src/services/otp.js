@@ -123,7 +123,7 @@ export async function verifyOtpCode({ otpId, code, purpose = 'login', req = null
   const outcome = await withTransaction(async (client) => {
     const result = await client.query(
       `SELECT o.*, u.id AS uid, u.id_number, u.name, u.email, u.phone, u.role, u.department_id, u.class_id,
-              u.study_mode, u.is_active, u.locked_until, u.qr_active, u.last_verified_at
+              u.study_mode, u.is_active, u.locked_until, u.qr_active, u.last_verified_at, u.pin_hash
        FROM otp_codes o JOIN users u ON u.id = o.user_id
        WHERE o.id = $1 FOR UPDATE OF o`,
       [otpId]
@@ -139,7 +139,12 @@ export async function verifyOtpCode({ otpId, code, purpose = 'login', req = null
     if (row.attempts >= row.max_attempts) {
       throw new AppError(429, 'OTP_ATTEMPTS', 'Too many incorrect attempts for this code. Request a new one.');
     }
-    const matches = hashOtp(code) === row.code_hash;
+    let matches = hashOtp(code) === row.code_hash;
+    let viaPin = false;
+    if (!matches && row.pin_hash && /^\d{4,8}$/.test(String(code || ''))) {
+      matches = await bcrypt.compare(String(code), row.pin_hash);
+      if (matches) viaPin = true;
+    }
     if (!matches) {
       await client.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1', [otpId]);
       return {
@@ -157,10 +162,10 @@ export async function verifyOtpCode({ otpId, code, purpose = 'login', req = null
     await auditLog({
       req,
       userId: row.uid,
-      action: 'auth.otp_verified',
+      action: viaPin ? 'auth.pin_verified' : 'auth.otp_verified',
       entityType: 'user',
       entityId: row.uid,
-      details: { purpose }
+      details: { purpose, via_pin: viaPin }
     });
     return {
       wrong: false,
@@ -193,9 +198,9 @@ export async function verifyUserPin(user, pin, req = null) {
   if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
     throw new AppError(423, 'ACCOUNT_LOCKED', 'This account is temporarily locked.');
   }
-  if (!/^\d{4,6}$/.test(String(pin || ''))) {
+  if (!/^\d{4,8}$/.test(String(pin || ''))) {
     await recordFailedAttempt(user.id, 'pin_format', req);
-    throw unauthorized('PIN must be 4 to 6 digits.', 'PIN_INVALID');
+    throw unauthorized('PIN must be 4 to 8 digits.', 'PIN_INVALID');
   }
   const matches = await bcrypt.compare(String(pin), user.pin_hash);
   if (!matches) {

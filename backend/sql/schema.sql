@@ -561,4 +561,12 @@ CREATE TABLE IF NOT EXISTS data_requests (
   notes text
 );
 
+-- Idempotent column guards: add any columns that may be missing in existing deployments
+-- (CREATE TABLE IF NOT EXISTS skips the body if the table already exists, so new columns
+--  added after initial deployment must be patched with ALTER TABLE ADD COLUMN IF NOT EXISTS)
+ALTER TABLE auth_sessions    ADD COLUMN IF NOT EXISTS last_seen_at  timestamptz NOT NULL DEFAULT now();
+ALTER TABLE trusted_devices  ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE trusted_devices  ADD COLUMN IF NOT EXISTS last_used_at  timestamptz NOT NULL DEFAULT now();
+ALTER TABLE data_requests    ADD COLUMN IF NOT EXISTS requested_at  timestamptz NOT NULL DEFAULT now();
+
 COMMIT;

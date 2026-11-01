@@ -47,7 +47,27 @@ async function loadProfile() {
   profile = await api.get('/api/me/profile');
   setUser({ ...getUser(), ...profile });
   renderProfile();
-  await Promise.all([loadStudyMode(), loadDevices(), loadPreferences(), loadDataRequests()]);
+  // Run sections independently so a single failing endpoint doesn't block the rest
+  // or trigger the global error toast — each section shows its own inline error instead.
+  await Promise.allSettled([
+    loadStudyMode().catch((err) => {
+      document.getElementById('study-mode-summary').innerHTML =
+        `<div class="notice warning">Could not load study mode: ${escapeHtml(err.message)}</div>`;
+    }),
+    loadDevices().catch((err) => {
+      document.getElementById('devices-list').innerHTML =
+        `<div class="notice warning">Could not load devices: ${escapeHtml(err.message)}</div>`;
+      document.getElementById('sessions-list').innerHTML = '';
+    }),
+    loadPreferences().catch((err) => {
+      document.getElementById('preferences-grid').innerHTML =
+        `<div class="notice warning">Could not load notification preferences: ${escapeHtml(err.message)}</div>`;
+    }),
+    loadDataRequests().catch((err) => {
+      document.getElementById('data-requests').innerHTML =
+        `<div class="notice warning">Could not load privacy requests: ${escapeHtml(err.message)}</div>`;
+    })
+  ]);
 }
 
 function renderProfile() {

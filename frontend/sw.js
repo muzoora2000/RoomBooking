@@ -1,4 +1,4 @@
-const VERSION = 'campus-v1.0.1';
+const VERSION = 'campus-v1.0.2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -47,7 +47,10 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(VERSION).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
+    caches
+      .open(VERSION)
+      .then((cache) => cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -84,17 +87,17 @@ self.addEventListener('fetch', (event) => {
   const isAsset = /\.(css|js|svg|png|jpg|jpeg|webp|woff2?)$/i.test(url.pathname);
   if (isAsset) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           if (response.ok) {
             const copy = response.clone();
             caches.open(VERSION).then((cache) => cache.put(request, copy));
           }
           return response;
-        });
-      })
+        })
+        .catch(() => caches.match(request))
     );
+    return;
   }
 });
 

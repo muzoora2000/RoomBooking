@@ -73,7 +73,7 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function attempt(path, options, attemptNumber) {
+async function sendAttempt(path, options, attemptNumber) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 20000);
   const headers = new Headers(options.headers || {});
@@ -150,7 +150,7 @@ export async function request(path, options = {}) {
   let lastError;
   for (let attemptNumber = 1; attemptNumber <= 20; attemptNumber += 1) {
     try {
-      return await attempt(path, { ...options, method }, attemptNumber);
+      return await sendAttempt(path, { ...options, method }, attemptNumber);
     } catch (error) {
       lastError = error;
       const canRetry = options.retry !== false && shouldRetry(method, error.status);

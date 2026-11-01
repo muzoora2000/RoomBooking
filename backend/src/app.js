@@ -92,7 +92,17 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/internal', internalRoutes);
 
 if (existsSync(frontendPath)) {
-  app.use(express.static(frontendPath, { extensions: ['html'], maxAge: config.isProduction ? '1h' : 0 }));
+  app.use(
+    express.static(frontendPath, {
+      extensions: ['html'],
+      maxAge: config.isProduction ? '1h' : 0,
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('sw.js') || filePath.includes(`${path.sep}js${path.sep}`)) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      }
+    })
+  );
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
     if (!existsSync(frontendIndex)) return next();

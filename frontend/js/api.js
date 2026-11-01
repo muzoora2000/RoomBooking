@@ -148,17 +148,17 @@ export async function request(path, options = {}) {
   const method = String(options.method || 'GET').toUpperCase();
   const started = Date.now();
   let lastError;
-  for (let attempt = 1; attempt <= 20; attempt += 1) {
+  for (let attemptNumber = 1; attemptNumber <= 20; attemptNumber += 1) {
     try {
-      return await attempt(path, { ...options, method }, attempt);
+      return await attempt(path, { ...options, method }, attemptNumber);
     } catch (error) {
       lastError = error;
       const canRetry = options.retry !== false && shouldRetry(method, error.status);
       if (!canRetry || Date.now() - started >= COLD_START_LIMIT_MS) break;
       window.dispatchEvent(new CustomEvent('campus:retrying', {
-        detail: { attempt, message: 'The campus server is waking up. Retrying automatically...' }
+        detail: { attempt: attemptNumber, message: 'The campus server is waking up. Retrying automatically...' }
       }));
-      await delay(Math.min(3000 + attempt * 1000, 8000));
+      await delay(Math.min(3000 + attemptNumber * 1000, 8000));
     }
   }
   throw lastError;

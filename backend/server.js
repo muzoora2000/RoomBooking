@@ -2,8 +2,13 @@ import app from './src/app.js';
 import { config, assertServerEnvironment } from './src/config.js';
 import { closePool, healthCheck } from './src/db/pool.js';
 import { processNotificationQueue } from './src/services/queue.js';
+import { runMigration } from './src/db/migrate.js';
 
 assertServerEnvironment();
+
+// Run schema migration on every startup so column additions in schema.sql are applied
+// to the live database without needing a separate migration step.
+await runMigration();
 
 let queueTimer = null;
 let shuttingDown = false;

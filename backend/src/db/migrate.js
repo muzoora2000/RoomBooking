@@ -7,7 +7,12 @@ import { acquire, closePool, sleeping } from './pool.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const schemaPath = path.resolve(here, '..', '..', 'sql', 'schema.sql');
 
-async function main() {
+/**
+ * Apply schema.sql to the database. Safe to call on every startup —
+ * all DDL statements use IF NOT EXISTS / IF EXISTS guards.
+ * Does NOT close the pool — the caller is responsible for that.
+ */
+export async function runMigration() {
   if (!config.databaseUrl) {
     console.error('DATABASE_URL is required. Add your Neon pooled connection string to backend/.env or the environment.');
     process.exitCode = 1;
@@ -32,22 +37,26 @@ async function main() {
     const info = await client.query('SELECT current_database() AS database, now() AS now');
     console.log(`Schema applied successfully to ${info.rows[0].database} at ${info.rows[0].now.toISOString()}`);
   } catch (error) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      // The failed statement may already have aborted the transaction.
-    }
+    try { await client.query('ROLLBACK'); } catch { /* already aborted */ }
     console.error('Migration failed:', error.message);
     if (error.position) console.error('SQL position:', error.position);
-    process.exitCode = 1;
+    throw error; // re-throw so the caller can decide whether to abort startup
   } finally {
     client.release();
-    await closePool();
   }
 }
 
-main().catch(async (error) => {
-  console.error('Migration failed:', error.message);
-  await closePool().catch(() => {});
-  process.exitCode = 1;
-});
+// Standalone CLI entry point: node src/db/migrate.js
+// Only runs when this module IS the entry point (not when imported).
+if (process.argv[1] && (
+  process.argv[1].endsWith('migrate.js') ||
+  process.argv[1].endsWith('migrate')
+)) {
+  runMigration()
+    .then(() => closePool())
+    .catch(async (error) => {
+      console.error('Migration failed:', error.message);
+      await closePool().catch(() => {});
+      process.exitCode = 1;
+    });
+}

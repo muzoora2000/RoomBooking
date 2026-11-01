@@ -1,4 +1,4 @@
-const VERSION = 'campus-v1.0.0';
+const VERSION = 'campus-v1.0.1';
 const APP_SHELL = [
   './',
   './index.html',

@@ -1,5 +1,4 @@
 import { api, queryString } from '../api.js';
-import { isLoggedIn } from '../auth.js';
 import {
   badge,
   debounce,

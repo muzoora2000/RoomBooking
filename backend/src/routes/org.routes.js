@@ -10,6 +10,50 @@ import { getAuthorisedModules, getModuleClasses } from '../services/sessions.js'
 import { notifyUser } from '../services/notifications.js';
 
 const router = express.Router();
+
+// ── Public endpoints (no authentication required) ────────────────────────────
+// Used by login/registration page to populate faculty dropdowns
+
+router.get('/public/departments', asyncHandler(async (req, res) => {
+  const result = await query(
+    `SELECT id, code, name FROM departments ORDER BY name`
+  );
+  res.json({ departments: result.rows });
+}));
+
+router.get('/public/programmes', asyncHandler(async (req, res) => {
+  const params = [];
+  let where = '';
+  if (req.query.department_id) {
+    params.push(req.query.department_id);
+    where = 'WHERE p.department_id = $1';
+  }
+  const result = await query(
+    `SELECT p.id, p.code, p.name, p.duration_years, p.department_id
+     FROM programmes p ${where} ORDER BY p.name`,
+    params
+  );
+  res.json({ programmes: result.rows });
+}));
+
+router.get('/public/classes', asyncHandler(async (req, res) => {
+  const params = [];
+  const conditions = [];
+  if (req.query.programme_id) {
+    params.push(req.query.programme_id);
+    conditions.push(`c.programme_id = $${params.length}`);
+  }
+  const result = await query(
+    `SELECT c.id, c.name, c.year_of_study, c.programme_id
+     FROM classes c
+     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+     ORDER BY c.year_of_study`,
+    params
+  );
+  res.json({ classes: result.rows });
+}));
+
+// ── All routes below require authentication ──────────────────────────────────
 router.use(authenticate);
 
 const ADMIN_ROLES = new Set(['department_admin', 'super_admin']);

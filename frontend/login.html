@@ -85,6 +85,35 @@
             <button class="btn ghost" type="button" id="resend-code">Send a new code</button>
           </div>
         </div>
+
+        <div id="profile-panel" class="hidden">
+          <div class="eyebrow">One more thing</div>
+          <h2 style="font-size:1.45rem">Tell us about yourself</h2>
+          <p class="muted">Help us show you the right timetable and modules.</p>
+          <form id="profile-setup-form" novalidate>
+            <div class="field">
+              <label for="setup-faculty">Faculty</label>
+              <select id="setup-faculty" required>
+                <option value="">Loading faculties…</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="setup-programme">Programme</label>
+              <select id="setup-programme" required disabled>
+                <option value="">Select a faculty first</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="setup-class">Year / Class</label>
+              <select id="setup-class" required disabled>
+                <option value="">Select a programme first</option>
+              </select>
+            </div>
+            <p class="error-text hidden" id="profile-setup-error" role="alert"></p>
+            <button class="btn wide" type="submit" id="profile-setup-submit">Continue</button>
+            <button class="btn ghost wide" type="button" id="profile-setup-skip" style="margin-top:.5rem">Skip for now</button>
+          </form>
+        </div>
       </section>
 
       <p class="center small muted" style="margin-top:1rem">Use of this service is subject to university conduct and data protection rules.</p>

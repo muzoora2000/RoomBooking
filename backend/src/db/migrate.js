@@ -6,10 +6,12 @@ import { acquire, closePool, sleeping } from './pool.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const schemaPath = path.resolve(here, '..', '..', 'sql', 'schema.sql');
+const seedPath   = path.resolve(here, '..', '..', 'sql', 'seed_cavendish.sql');
 
 /**
- * Apply schema.sql to the database. Safe to call on every startup —
- * all DDL statements use IF NOT EXISTS / IF EXISTS guards.
+ * Apply schema.sql then seed_cavendish.sql to the database.
+ * Safe to call on every startup — all DDL uses IF NOT EXISTS guards
+ * and all DML uses ON CONFLICT DO NOTHING / DO UPDATE.
  * Does NOT close the pool — the caller is responsible for that.
  */
 export async function runMigration() {
@@ -36,6 +38,18 @@ export async function runMigration() {
     await client.query(sql);
     const info = await client.query('SELECT current_database() AS database, now() AS now');
     console.log(`Schema applied successfully to ${info.rows[0].database} at ${info.rows[0].now.toISOString()}`);
+    // Run Cavendish seed data if the file exists
+    try {
+      const seedSql = await fs.readFile(seedPath, 'utf8');
+      console.log('Applying sql/seed_cavendish.sql (Cavendish timetable data)...');
+      await client.query(seedSql);
+      console.log('Seed applied successfully.');
+    } catch (seedErr) {
+      // Non-fatal: seed file may not exist in all environments
+      if (seedErr.code !== 'ENOENT') {
+        console.warn('Seed warning:', seedErr.message);
+      }
+    }
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch { /* already aborted */ }
     console.error('Migration failed:', error.message);

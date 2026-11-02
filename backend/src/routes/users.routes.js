@@ -18,7 +18,8 @@ router.use(authenticate);
 const profileSchema = z.object({
   phone: z.string().min(7).max(30).optional(),
   sms_link_opt_in: z.boolean().optional(),
-  consent: z.literal(true).optional()
+  consent: z.literal(true).optional(),
+  class_id: z.string().uuid().optional()
 });
 
 const passwordSchema = z.object({
@@ -111,6 +112,17 @@ router.patch(
     }
     if (req.body.consent === true) {
       updates.push('consent_at = COALESCE(consent_at, now())');
+    }
+    if (req.body.class_id !== undefined) {
+      const classCheck = await query(
+        'SELECT id, department_id FROM classes WHERE id = $1',
+        [req.body.class_id]
+      );
+      if (!classCheck.rows[0]) throw new AppError(404, 'CLASS_NOT_FOUND', 'Class not found.');
+      params.push(req.body.class_id);
+      updates.push(`class_id = $${params.length}`);
+      params.push(classCheck.rows[0].department_id);
+      updates.push(`department_id = $${params.length}`);
     }
     if (!updates.length) throw new AppError(400, 'NO_CHANGES', 'No profile changes were supplied.');
     const result = await query(

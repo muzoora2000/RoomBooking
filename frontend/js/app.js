@@ -7,7 +7,14 @@ const noChrome = document.body.hasAttribute('data-no-chrome');
 
 if (!noChrome) {
   mountChrome(page);
-  if (isLoggedIn()) refreshMe().then(() => mountChrome(page)).catch(() => {});
+  if (isLoggedIn()) {
+    refreshMe()
+      .then(() => {
+        mountChrome(page);
+        refreshUnread();
+      })
+      .catch(() => {});
+  }
 }
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

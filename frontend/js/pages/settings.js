@@ -13,6 +13,8 @@ import {
 } from '../ui.js';
 
 const modeLabels = { physical: 'In person', online: 'Online', hybrid: 'Hybrid' };
+const workModeLabels = { physical: 'On site', online: 'Online', hybrid: 'Hybrid' };
+const STUDY_MODE_ROLES = new Set(['student', 'class_rep', 'deputy_rep']);
 const eventOptions = [
   ['session_confirmed', 'Booking confirmed'],
   ['session_updated', 'Session changed'],
@@ -94,6 +96,18 @@ function renderProfile() {
 }
 
 async function loadStudyMode() {
+  const isStudent = STUDY_MODE_ROLES.has(profile.role);
+  document.getElementById('mode-card-title').textContent = isStudent ? 'Study mode' : 'Working mode';
+  document.getElementById('request-mode').textContent = isStudent ? 'Request a change' : 'Change working mode';
+  if (!isStudent) {
+    document.getElementById('study-mode-summary').innerHTML = `
+      <div class="notice info">
+        <strong>${escapeHtml(workModeLabels[profile.study_mode] || profile.study_mode || 'Not set')}</strong>
+        <p class="small">This controls whether hybrid sessions show you as working on site or online. Staff changes apply immediately.</p>
+      </div>`;
+    document.getElementById('mode-requests').innerHTML = '';
+    return;
+  }
   document.getElementById('study-mode-summary').innerHTML = `
     <div class="notice info">
       <strong>${escapeHtml(modeLabels[profile.study_mode] || profile.study_mode || 'Not set')}</strong>
@@ -111,7 +125,7 @@ async function loadStudyMode() {
     : '<p class="small muted">No study mode requests yet.</p>';
 }
 
-document.getElementById('request-mode').addEventListener('click', () => {
+function openStudyModeRequest() {
   const modal = openModal({
     title: 'Request study mode change',
     content: `
@@ -152,6 +166,54 @@ document.getElementById('request-mode').addEventListener('click', () => {
       setButtonLoading(button, false);
     }
   });
+}
+
+function openWorkModeChange() {
+  const modal = openModal({
+    title: 'Change working mode',
+    content: `
+      <form id="work-mode-form">
+        <div class="field">
+          <label for="working-mode">Working mode</label>
+          <select id="working-mode" name="mode">
+            <option value="physical">On site</option>
+            <option value="online">Online</option>
+            <option value="hybrid">Hybrid</option>
+          </select>
+        </div>
+        <p class="small muted">Choose how you are working. This affects hybrid session instructions and whether you are expected on site or online.</p>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn wide" type="submit">Save working mode</button>
+      </form>`,
+    footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
+  });
+  const form = modal.body.querySelector('#work-mode-form');
+  form.querySelector('#working-mode').value = profile.study_mode || 'physical';
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    setButtonLoading(button, true, 'Saving...');
+    clearSectionError(form);
+    try {
+      const data = Object.fromEntries(new FormData(form).entries());
+      await api.patch('/api/me/work-mode', { mode: data.mode }, { retry: false });
+      modal.close();
+      toast('Working mode updated.', 'success');
+      profile = await api.get('/api/me/profile');
+      setUser({ ...getUser(), study_mode: profile.study_mode });
+      await loadStudyMode();
+    } catch (error) {
+      setSectionError(form, error.message);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  });
+}
+
+document.getElementById('request-mode').addEventListener('click', () => {
+  if (!profile) return;
+  if (STUDY_MODE_ROLES.has(profile.role)) openStudyModeRequest();
+  else openWorkModeChange();
 });
 
 document.getElementById('profile-form').addEventListener('submit', async (event) => {

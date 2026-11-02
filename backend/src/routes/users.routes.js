@@ -36,6 +36,13 @@ const studyModeSchema = z.object({
   reason: z.string().min(10).max(1000)
 });
 
+const workModeSchema = z.object({
+  mode: z.enum(['physical', 'online', 'hybrid'])
+});
+
+const STUDY_MODE_ROLES = new Set(['student', 'class_rep', 'deputy_rep']);
+const WORK_MODE_ROLES = new Set(['lecturer', 'department_admin', 'super_admin']);
+
 const dataRequestSchema = z.object({
   type: z.enum(['export', 'deletion']),
   notes: z.string().max(1000).optional()
@@ -211,6 +218,9 @@ router.post(
   '/study-mode/request',
   validate(studyModeSchema),
   asyncHandler(async (req, res) => {
+    if (!STUDY_MODE_ROLES.has(req.user.role)) {
+      throw new AppError(403, 'STUDY_MODE_STUDENTS_ONLY', 'Only students can request study mode changes. Update your working mode in Settings instead.');
+    }
     const pending = await query(
       `SELECT id FROM study_mode_requests WHERE user_id = $1 AND status = 'pending'`,
       [req.user.id]
@@ -254,6 +264,30 @@ router.get(
       [req.user.id]
     );
     res.json({ requests: result.rows });
+  })
+);
+
+router.patch(
+  '/work-mode',
+  validate(workModeSchema),
+  asyncHandler(async (req, res) => {
+    if (!WORK_MODE_ROLES.has(req.user.role)) {
+      throw new AppError(403, 'WORK_MODE_STAFF_ONLY', 'Working mode is available to lecturers and administrators. Students should request a study mode change.');
+    }
+    const result = await query(
+      `UPDATE users SET study_mode = $2, updated_at = now()
+       WHERE id = $1
+       RETURNING id, study_mode`,
+      [req.user.id, req.body.mode]
+    );
+    await auditLog({
+      req,
+      action: 'profile.work_mode_updated',
+      entityType: 'user',
+      entityId: req.user.id,
+      details: { mode: req.body.mode }
+    });
+    res.json({ user: result.rows[0] });
   })
 );
 

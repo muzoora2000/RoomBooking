@@ -34,6 +34,7 @@ const state = {
 };
 
 const roleOptions = ['student', 'class_rep', 'deputy_rep', 'lecturer', 'department_admin', 'super_admin'];
+const studyModeRoles = new Set(['student', 'class_rep', 'deputy_rep']);
 const categoryLabels = {
   lecture_room: 'Lecture room',
   discussion_room: 'Discussion room',
@@ -44,6 +45,19 @@ const categoryLabels = {
 
 function skeleton() {
   content.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+}
+
+function modeFieldLabel(role) {
+  return studyModeRoles.has(role) ? 'Study mode' : 'Working mode';
+}
+
+function bindModeLabel(form) {
+  const roleSelect = form.querySelector('#user-form-role');
+  const label = form.querySelector('#user-form-mode-label');
+  if (!roleSelect || !label) return;
+  roleSelect.addEventListener('change', () => {
+    label.textContent = modeFieldLabel(roleSelect.value);
+  });
 }
 
 function pageHeader(title, subtitle, actions = '') {
@@ -706,7 +720,7 @@ function userFormFields(user = null) {
       <div class="field"><label>Class</label><select name="class_id">${classOptions(user?.class_id || '')}</select></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Study mode</label><select name="study_mode">${['physical', 'online', 'hybrid'].map((mode) => option(mode, mode, (user?.study_mode || 'physical') === mode)).join('')}</select></div>
+      <div class="field"><label id="user-form-mode-label">${modeFieldLabel(user?.role || 'student')}</label><select name="study_mode" ${user ? 'disabled' : ''}>${['physical', 'online', 'hybrid'].map((mode) => option(mode, mode, (user?.study_mode || 'physical') === mode)).join('')}</select>${user ? '<p class="hint">Students request changes in Settings; staff change their working mode in Settings.</p>' : ''}</div>
       ${user ? `<div class="field"><label>Account status</label><select name="is_active">${option('true', 'Active', user.is_active)}${option('false', 'Inactive', !user.is_active)}</select></div>` : '<div></div>'}
     </div>
     ${user ? `<label class="check"><input type="checkbox" name="flagged_for_review" ${user.flagged_for_review ? 'checked' : ''}> <span>Flag for review</span></label>` : ''}`;
@@ -719,6 +733,7 @@ function createUserForm() {
     footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
   });
   const form = modal.body.querySelector('#user-form');
+  bindModeLabel(form);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
@@ -804,7 +819,7 @@ async function manageUser(user) {
         <div><span>Phone</span><div>${escapeHtml(detail.phone || '-')}</div></div>
         <div><span>Department</span><div>${escapeHtml(detail.department_name || '-')}</div></div>
         <div><span>Class</span><div>${escapeHtml(detail.class_name || '-')}</div></div>
-        <div><span>Study mode</span><div>${escapeHtml(detail.study_mode)}</div></div>
+        <div><span>${modeFieldLabel(detail.role)}</span><div>${escapeHtml(detail.study_mode)}</div></div>
         <div><span>Bookings</span><div>${Number(counts.total || 0)} total · ${Number(counts.upcoming || 0)} upcoming</div></div>
       </div>
       ${(result.no_shows || []).length ? `<h3 style="margin-top:.8rem">Recent no-shows</h3><div class="list">${result.no_shows.slice(0, 5).map((item) => `<div class="list-item"><div class="main"><h3>${escapeHtml(formatDate(item.marked_at, { dateStyle: 'medium' }))}</h3><p>${escapeHtml(item.reason || '')}</p></div></div>`).join('')}</div>` : ''}
@@ -861,6 +876,7 @@ function editUserForm(user) {
     footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
   });
   const form = modal.body.querySelector('#edit-user-form');
+  bindModeLabel(form);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
@@ -872,7 +888,6 @@ function editUserForm(user) {
         role: data.get('role'),
         department_id: data.get('department_id') || null,
         class_id: data.get('class_id') || null,
-        study_mode: data.get('study_mode'),
         is_active: data.get('is_active') === 'true',
         flagged_for_review: data.get('flagged_for_review') === 'on',
         flagged_reason: data.get('flagged_reason') || null
@@ -971,7 +986,7 @@ function openIssue(issue) {
 
 async function loadStudyRequests() {
   content.innerHTML = `
-    ${pageHeader('Study mode requests', 'Review requests to change how a student attends classes.')}
+    ${pageHeader('Student study mode requests', 'Review study mode changes requested by students. Staff manage their working mode in Settings.')}
     <div class="filters"><select id="study-status-filter">${['all', 'pending', 'approved', 'rejected'].map((value) => option(value, value, value === state.studyStatus)).join('')}</select><button class="btn secondary" type="button" id="refresh-study">Refresh</button></div>
     <div id="admin-study"><div class="skeleton"></div></div>`;
   document.getElementById('study-status-filter').addEventListener('change', (event) => {

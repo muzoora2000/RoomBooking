@@ -34,6 +34,7 @@ router.use(authenticate, requireAdmin);
 
 const USER_ROLES = ['student', 'class_rep', 'deputy_rep', 'lecturer', 'department_admin', 'super_admin'];
 const REP_ROLES = new Set(['class_rep', 'deputy_rep']);
+const STUDY_MODE_ROLES = new Set(['student', 'class_rep', 'deputy_rep']);
 
 function isSuper(user) {
   return user.role === 'super_admin';
@@ -147,6 +148,9 @@ async function createUserRecord({ admin, input, req }) {
       throw new AppError(400, 'DEPARTMENT_REQUIRED', 'Staff accounts must be assigned to a department.');
     }
     const studyMode = input.study_mode || classRow?.default_study_mode || 'physical';
+    if (input.study_mode && STUDY_MODE_ROLES.has(input.role) && classRow && input.study_mode !== classRow.default_study_mode) {
+      throw new AppError(400, 'STUDY_MODE_APPROVAL_REQUIRED', 'Student study mode must be changed through a reviewed study mode request.');
+    }
     const rawQrToken = randomToken(32);
     const handle = `h-${randomToken(12).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12)}`;
     const qrSecret = randomBase32Secret(20);
@@ -254,7 +258,8 @@ router.get(
          (SELECT count(*)::int FROM bookings b WHERE b.status = 'pending') AS pending_bookings,
          (SELECT count(*)::int FROM bookings b WHERE b.status = 'confirmed' AND b.start_at::date = current_date) AS sessions_today,
          (SELECT count(*)::int FROM room_issues WHERE status = 'open') AS open_issues,
-         (SELECT count(*)::int FROM study_mode_requests WHERE status = 'pending') AS pending_study_mode,
+         (SELECT count(*)::int FROM study_mode_requests r JOIN users u ON u.id = r.user_id
+           WHERE r.status = 'pending' AND u.role IN ('student','class_rep','deputy_rep')) AS pending_study_mode,
          (SELECT count(*)::int FROM data_requests WHERE status = 'pending') AS pending_data_requests,
          (SELECT count(*)::int FROM notification_queue WHERE status = 'failed') AS failed_notifications`,
       params
@@ -424,7 +429,6 @@ router.patch(
       role: z.enum(USER_ROLES).optional(),
       department_id: z.string().uuid().nullable().optional(),
       class_id: z.string().uuid().nullable().optional(),
-      study_mode: z.enum(['physical', 'online', 'hybrid']).optional(),
       is_active: z.boolean().optional(),
       flagged_for_review: z.boolean().optional(),
       flagged_reason: z.string().max(1000).nullable().optional(),
@@ -480,7 +484,7 @@ router.patch(
       }
 
       const updates = {};
-      for (const key of ['name', 'role', 'department_id', 'class_id', 'study_mode', 'is_active', 'flagged_for_review', 'flagged_reason', 'sms_link_opt_in']) {
+      for (const key of ['name', 'role', 'department_id', 'class_id', 'is_active', 'flagged_for_review', 'flagged_reason', 'sms_link_opt_in']) {
         if (has(key)) updates[key] = req.body[key];
       }
       if (has('class_id') && nextDepartmentId !== user.department_id) {
@@ -1191,7 +1195,7 @@ router.get(
   '/study-mode-requests',
   asyncHandler(async (req, res) => {
     const params = [];
-    const conditions = [];
+    const conditions = [`u.role IN ('student', 'class_rep', 'deputy_rep')`];
     if (req.query.status) {
       params.push(req.query.status);
       conditions.push(`r.status = $${params.length}`);

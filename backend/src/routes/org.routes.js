@@ -74,7 +74,7 @@ router.get('/public/modules', asyncHandler(async (req, res) => {
     params
   );
   res.json({ modules: result.rows });
-})));
+}));
 
 // ── All routes below require authentication ──────────────────────────────────
 router.use(authenticate);

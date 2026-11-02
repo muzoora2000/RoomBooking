@@ -229,8 +229,8 @@ export function mountChrome(active = '') {
     top.innerHTML = `
       <div class="topbar-inner">
         <a class="brand" href="index.html" aria-label="Campus Compass home">
-          <span class="brand-mark">${icon('pin')}</span>
-          <span>Campus Compass<small>Find. Book. Arrive.</small></span>
+          <img src="icons/cavendish-logo.jpg" alt="Cavendish University Uganda" class="brand-logo-img">
+          <span class="brand-name">Campus Compass<small>Find. Book. Arrive.</small></span>
         </a>
         <div class="top-actions">
           ${loggedIn ? `

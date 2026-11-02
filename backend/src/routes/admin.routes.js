@@ -27,11 +27,13 @@ import { getSettings, updateSettings, SETTING_DEFAULTS } from '../services/setti
 import { buildIdCardHtml, buildRoomQrSheetHtml, buildRoomQrUrl, issueIdQr } from '../services/qr.js';
 import { notifyStudyModeDecision, notifyUser } from '../services/notifications.js';
 import { sendEmail } from '../services/email.js';
+import { getCurrentSemester } from '../services/studyMode.js';
 
 const router = express.Router();
 router.use(authenticate, requireAdmin);
 
 const USER_ROLES = ['student', 'class_rep', 'deputy_rep', 'lecturer', 'department_admin', 'super_admin'];
+const REP_ROLES = new Set(['class_rep', 'deputy_rep']);
 
 function isSuper(user) {
   return user.role === 'super_admin';
@@ -67,10 +69,72 @@ async function resolveClass(client, classId) {
   return result.rows[0] || null;
 }
 
+async function syncClassRep(client, { userId, role, classId, adminId }) {
+  if (!REP_ROLES.has(role)) {
+    await client.query(
+      `UPDATE class_reps SET is_active = false, revoked_at = now()
+       WHERE user_id = $1 AND is_active = true`,
+      [userId]
+    );
+    return;
+  }
+  if (!classId) {
+    throw new AppError(400, 'CLASS_REQUIRED', 'Class representatives must be assigned to a class.');
+  }
+  const semester = await getCurrentSemester(client);
+  if (!semester) {
+    throw new AppError(409, 'NO_SEMESTER', 'No current semester is configured. Set a current semester before assigning class representatives.');
+  }
+  const isDeputy = role === 'deputy_rep';
+  const conflict = await client.query(
+    `SELECT user_id FROM class_reps
+     WHERE class_id = $1 AND semester_id = $2 AND is_deputy = $3
+       AND is_active = true AND user_id <> $4`,
+    [classId, semester.id, isDeputy, userId]
+  );
+  if (conflict.rowCount) {
+    throw new AppError(
+      409,
+      'CLASS_REP_SLOT_FILLED',
+      `This class already has an active ${isDeputy ? 'deputy ' : ''}class representative. Demote or move the current representative first.`
+    );
+  }
+  await client.query(
+    `UPDATE class_reps SET is_active = false, revoked_at = now()
+     WHERE user_id = $1 AND is_active = true
+       AND NOT (class_id = $2 AND semester_id = $3 AND is_deputy = $4)`,
+    [userId, classId, semester.id, isDeputy]
+  );
+  const existing = await client.query(
+    `SELECT id FROM class_reps
+     WHERE user_id = $1 AND class_id = $2 AND semester_id = $3 AND is_deputy = $4
+     ORDER BY assigned_at DESC LIMIT 1`,
+    [userId, classId, semester.id, isDeputy]
+  );
+  if (existing.rowCount) {
+    await client.query(
+      `UPDATE class_reps
+       SET is_active = true, is_available = true, assigned_by = $2,
+           assigned_at = now(), revoked_at = NULL
+       WHERE id = $1`,
+      [existing.rows[0].id, adminId]
+    );
+    return;
+  }
+  await client.query(
+    `INSERT INTO class_reps (user_id, class_id, semester_id, is_deputy, is_active, is_available, assigned_by)
+     VALUES ($1,$2,$3,$4,true,true,$5)`,
+    [userId, classId, semester.id, isDeputy, adminId]
+  );
+}
+
 async function createUserRecord({ admin, input, req }) {
   const result = await withTransaction(async (client) => {
     const classRow = await resolveClass(client, input.class_id || null);
     if (input.class_id && !classRow) throw new AppError(404, 'CLASS_NOT_FOUND', 'Class not found.');
+    if (input.department_id && classRow && input.department_id !== classRow.programme_department_id) {
+      throw new AppError(400, 'CLASS_DEPARTMENT_MISMATCH', 'The class does not belong to that department.');
+    }
     const departmentId = input.department_id || classRow?.programme_department_id || null;
     if (departmentId) assertDepartmentScope(admin, departmentId);
     if (!isSuper(admin) && input.role === 'super_admin') {
@@ -116,6 +180,12 @@ async function createUserRecord({ admin, input, req }) {
       }
       throw error;
     }
+    await syncClassRep(client, {
+      userId: user.id,
+      role: input.role,
+      classId: classRow?.id || null,
+      adminId: admin.id
+    });
     const activationToken = randomToken(32);
     await client.query(
       `INSERT INTO user_activation_tokens (user_id, token_hash, expires_at)
@@ -362,59 +432,108 @@ router.patch(
     })
   ),
   asyncHandler(async (req, res) => {
-    const existing = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
-    const user = existing.rows[0];
-    if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found.');
-    if (!isSuper(req.user)) assertDepartmentScope(req.user, user.department_id);
-    if (!isSuper(req.user)) {
-      if (req.body.role === 'super_admin') {
-        throw new AppError(403, 'ROLE_FORBIDDEN', 'Only a super administrator can grant that role.');
+    const updated = await withTransaction(async (client) => {
+      const existing = await client.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+      const user = existing.rows[0];
+      if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found.');
+      if (!isSuper(req.user)) assertDepartmentScope(req.user, user.department_id);
+
+      const has = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
+      const nextRole = has('role') ? req.body.role : user.role;
+      const nextClassId = has('class_id') ? req.body.class_id : user.class_id;
+      const nextActive = has('is_active') ? req.body.is_active : user.is_active;
+      let nextDepartmentId = has('department_id') ? req.body.department_id : user.department_id;
+      const roleChanging = nextRole !== user.role;
+      const classChanging = nextClassId !== user.class_id;
+      const activeChanging = nextActive !== user.is_active;
+
+      if (!isSuper(req.user)) {
+        if (nextRole === 'super_admin') {
+          throw new AppError(403, 'ROLE_FORBIDDEN', 'Only a super administrator can grant that role.');
+        }
+        if (nextDepartmentId && nextDepartmentId !== req.user.department_id) {
+          throw new AppError(403, 'ROLE_FORBIDDEN', 'You cannot move a user to another department.');
+        }
       }
-      if (req.body.department_id && req.body.department_id !== req.user.department_id) {
-        throw new AppError(403, 'ROLE_FORBIDDEN', 'You cannot move a user to another department.');
+
+      if (nextClassId) {
+        const classRow = await resolveClass(client, nextClassId);
+        if (!classRow) throw new AppError(404, 'CLASS_NOT_FOUND', 'Class not found.');
+        assertDepartmentScope(req.user, classRow.programme_department_id);
+        if (has('department_id') && nextDepartmentId && nextDepartmentId !== classRow.programme_department_id) {
+          throw new AppError(400, 'CLASS_DEPARTMENT_MISMATCH', 'The class does not belong to that department.');
+        }
+        if (!nextDepartmentId) {
+          nextDepartmentId = classRow.programme_department_id;
+        }
       }
-    }
-    if (req.body.class_id) {
-      const classRow = await resolveClass({ query }, req.body.class_id);
-      if (!classRow) throw new AppError(404, 'CLASS_NOT_FOUND', 'Class not found.');
-      const targetDepartment = req.body.department_id || classRow.programme_department_id;
-      assertDepartmentScope(req.user, targetDepartment);
-      if (req.body.department_id && req.body.department_id !== classRow.programme_department_id) {
-        throw new AppError(400, 'CLASS_DEPARTMENT_MISMATCH', 'The class does not belong to that department.');
+      if (nextDepartmentId) assertDepartmentScope(req.user, nextDepartmentId);
+
+      if (['student', 'class_rep', 'deputy_rep'].includes(nextRole) && !nextClassId) {
+        throw new AppError(400, 'CLASS_REQUIRED', 'Students and class representatives must be assigned to a class.');
       }
-    }
-    if (user.id === req.user.id && req.body.is_active === false) {
-      throw new AppError(400, 'SELF_DEACTIVATE', 'You cannot deactivate your own account.');
-    }
-    const fields = [];
-    const params = [user.id];
-    for (const key of ['name', 'role', 'department_id', 'class_id', 'study_mode', 'is_active', 'flagged_for_review', 'flagged_reason', 'sms_link_opt_in']) {
-      if (req.body[key] !== undefined) {
-        params.push(req.body[key]);
+      if (['department_admin', 'lecturer'].includes(nextRole) && !nextDepartmentId) {
+        throw new AppError(400, 'DEPARTMENT_REQUIRED', 'Staff accounts must be assigned to a department.');
+      }
+      if (user.id === req.user.id && !nextActive) {
+        throw new AppError(400, 'SELF_DEACTIVATE', 'You cannot deactivate your own account.');
+      }
+
+      const updates = {};
+      for (const key of ['name', 'role', 'department_id', 'class_id', 'study_mode', 'is_active', 'flagged_for_review', 'flagged_reason', 'sms_link_opt_in']) {
+        if (has(key)) updates[key] = req.body[key];
+      }
+      if (has('class_id') && nextDepartmentId !== user.department_id) {
+        updates.department_id = nextDepartmentId;
+      }
+      if (!Object.keys(updates).length) throw new AppError(400, 'NO_CHANGES', 'No changes supplied.');
+
+      const fields = [];
+      const params = [user.id];
+      for (const [key, value] of Object.entries(updates)) {
+        params.push(value);
         fields.push(`${key} = $${params.length}`);
       }
-    }
-    if (!fields.length) throw new AppError(400, 'NO_CHANGES', 'No changes supplied.');
-    const updated = await query(
-      `UPDATE users SET ${fields.join(', ')}, updated_at = now()
-       WHERE id = $1 RETURNING id, id_number, name, email, role, department_id, class_id, study_mode, is_active`,
-      params
-    );
-    if (req.body.is_active === false) {
-      await query(
-        `UPDATE auth_sessions SET revoked_at = now(), revoked_reason = 'account_deactivated'
-         WHERE user_id = $1 AND revoked_at IS NULL`,
-        [user.id]
+      const result = await client.query(
+        `UPDATE users SET ${fields.join(', ')}, updated_at = now()
+         WHERE id = $1 RETURNING id, id_number, name, email, role, department_id, class_id, study_mode, is_active`,
+        params
       );
-    }
+      const fresh = result.rows[0];
+
+      if (roleChanging || classChanging || activeChanging) {
+        if (nextActive) {
+          await syncClassRep(client, {
+            userId: user.id,
+            role: fresh.role,
+            classId: fresh.class_id,
+            adminId: req.user.id
+          });
+        } else {
+          await client.query(
+            `UPDATE class_reps SET is_active = false, revoked_at = now() WHERE user_id = $1 AND is_active = true`,
+            [user.id]
+          );
+        }
+      }
+      if (!nextActive) {
+        await client.query(
+          `UPDATE auth_sessions SET revoked_at = now(), revoked_reason = 'account_deactivated'
+           WHERE user_id = $1 AND revoked_at IS NULL`,
+          [user.id]
+        );
+      }
+      return fresh;
+    });
+
     await auditLog({
       req,
       action: 'admin.user_updated',
       entityType: 'user',
-      entityId: user.id,
+      entityId: updated.id,
       details: { fields: Object.keys(req.body) }
     });
-    res.json({ user: updated.rows[0] });
+    res.json({ user: updated });
   })
 );
 

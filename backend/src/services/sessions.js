@@ -62,6 +62,9 @@ export async function getAuthorisedModules(user, { semesterId = null, client = n
     );
     return { semester, modules: result.rows };
   }
+  if (user.role !== 'class_rep' && user.role !== 'deputy_rep') {
+    return { semester, modules: [] };
+  }
   const repResult = await db.query(
     `SELECT class_id, is_deputy FROM class_reps
      WHERE user_id = $1 AND is_active = true

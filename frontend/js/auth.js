@@ -21,10 +21,20 @@ export function saveSession(result) {
   return result.user;
 }
 
-export async function refreshMe() {
-  const result = await api.get('/api/auth/me');
-  setUser(result.user);
-  return result.user;
+let meRequest = null;
+
+export function refreshMe() {
+  if (!meRequest) {
+    meRequest = api.get('/api/auth/me')
+      .then((result) => {
+        setUser(result.user);
+        return result.user;
+      })
+      .finally(() => {
+        meRequest = null;
+      });
+  }
+  return meRequest;
 }
 
 export function isLoggedIn() {
@@ -69,10 +79,15 @@ export async function requireAuth() {
     return null;
   }
   const cached = getUser();
-  if (cached) return cached;
   try {
     return await refreshMe();
-  } catch {
+  } catch (error) {
+    if (error?.status === 401) {
+      clearSession();
+      redirectToLogin();
+      return null;
+    }
+    if (cached) return cached;
     clearSession();
     redirectToLogin();
     return null;

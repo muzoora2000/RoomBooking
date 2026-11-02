@@ -1,11 +1,14 @@
 import { api, getToken } from './api.js';
-import { isLoggedIn, logout } from './auth.js';
+import { isLoggedIn, logout, refreshMe } from './auth.js';
 import { mountChrome, notifyError, setUnreadCount, toast } from './ui.js';
 
 const page = document.body.dataset.page || '';
 const noChrome = document.body.hasAttribute('data-no-chrome');
 
-if (!noChrome) mountChrome(page);
+if (!noChrome) {
+  mountChrome(page);
+  if (isLoggedIn()) refreshMe().then(() => mountChrome(page)).catch(() => {});
+}
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {

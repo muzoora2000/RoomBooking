@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS classes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   programme_id uuid NOT NULL REFERENCES programmes(id) ON DELETE RESTRICT,
   department_id uuid NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  code text NOT NULL,
   name text NOT NULL,
   year_of_study integer NOT NULL CHECK (year_of_study BETWEEN 1 AND 8),
   intake text NOT NULL DEFAULT 'Main',
@@ -568,5 +569,15 @@ ALTER TABLE auth_sessions    ADD COLUMN IF NOT EXISTS last_seen_at  timestamptz 
 ALTER TABLE trusted_devices  ADD COLUMN IF NOT EXISTS first_seen_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE trusted_devices  ADD COLUMN IF NOT EXISTS last_used_at  timestamptz NOT NULL DEFAULT now();
 ALTER TABLE data_requests    ADD COLUMN IF NOT EXISTS requested_at  timestamptz NOT NULL DEFAULT now();
+
+-- classes.code is referenced by profiles, admin searches, imports, and schedules.
+-- Backfill existing rows, then enforce NOT NULL so the column is always usable.
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS code text;
+UPDATE classes c
+SET code = p.code || '-' || c.year_of_study || '-' || upper(replace(c.stream, ' ', ''))
+FROM programmes p
+WHERE p.id = c.programme_id AND c.code IS NULL;
+ALTER TABLE classes ALTER COLUMN code SET NOT NULL;
+CREATE INDEX IF NOT EXISTS classes_code_idx ON classes (code);
 
 COMMIT;

@@ -87,6 +87,7 @@ export async function facilityDetail(facilityId) {
   return result.rows[0] || null;
 }
 
+// ── Public routes (no auth needed) ───────────────────────────────────────────
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -105,6 +106,7 @@ router.get(
   })
 );
 
+// ── Routes below use authenticate only when needed ────────────────────────────
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {

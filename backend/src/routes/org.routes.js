@@ -53,6 +53,29 @@ router.get('/public/classes', asyncHandler(async (req, res) => {
   res.json({ classes: result.rows });
 }));
 
+router.get('/public/modules', asyncHandler(async (req, res) => {
+  const params = [];
+  const conditions = [];
+  if (req.query.programme_id) {
+    params.push(req.query.programme_id);
+    conditions.push(`m.programme_id = $${params.length}`);
+  }
+  if (req.query.department_id) {
+    params.push(req.query.department_id);
+    conditions.push(`m.department_id = $${params.length}`);
+  }
+  const result = await query(
+    `SELECT m.id, m.code, m.name, m.credit_units, m.programme_id, m.department_id,
+            u.name AS lecturer_name
+     FROM modules m
+     LEFT JOIN users u ON u.id = m.lecturer_id
+     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+     ORDER BY m.code`,
+    params
+  );
+  res.json({ modules: result.rows });
+})));
+
 // ── All routes below require authentication ──────────────────────────────────
 router.use(authenticate);
 

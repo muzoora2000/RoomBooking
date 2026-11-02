@@ -1,5 +1,5 @@
 import { api, queryString } from '../api.js';
-import { requireAuth } from '../auth.js';
+import { isLoggedIn } from '../auth.js';
 import {
   badge,
   debounce,
@@ -188,8 +188,7 @@ document.getElementById('scan-room').addEventListener('click', async () => {
 });
 
 async function start() {
-  const user = await requireAuth();
-  if (!user) return;
+  // Rooms are public - no auth required
   const initialQuery = params.get('q');
   if (initialQuery) filters.querySelector('[name="q"]').value = initialQuery;
   await Promise.all([loadCategories(), loadRooms()]);

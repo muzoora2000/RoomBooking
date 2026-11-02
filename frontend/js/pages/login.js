@@ -137,14 +137,8 @@ function showProfilePanel() {
 
 function complete(result) {
   if (result.new_device) toast('New device verified. Review your sign-in activity in Settings.', 'success', 5000);
-  // Show profile setup for users who don't have a class assigned yet
-  // Check via the user info returned; if none, redirect immediately
-  if (result.user && !result.user.class_id &&
-      result.user.role === 'student') {
-    showProfilePanel();
-  } else {
-    location.replace(next);
-  }
+  // Always redirect after successful login — faculty/class selection is done in Settings
+  location.replace(next);
 }
 
 // ── Password form ─────────────────────────────────────────────────────────────

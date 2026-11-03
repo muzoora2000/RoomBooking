@@ -225,6 +225,7 @@ export function mountChrome(active = '') {
   const loggedIn = Boolean(localStorage.getItem('campus.token'));
   const admin = user && ['department_admin', 'super_admin'].includes(user.role);
   const top = document.getElementById('topbar');
+  const nav = document.getElementById('bottom-nav');
   if (top) {
     top.className = 'topbar';
     top.innerHTML = `
@@ -246,9 +247,11 @@ export function mountChrome(active = '') {
         </div>
       </div>`;
   }
-  const nav = document.getElementById('bottom-nav');
   if (nav) {
-    nav.className = 'bottom-nav';
+    nav.className = 'top-nav';
+    nav.setAttribute('aria-label', 'Main navigation');
+    const actions = top ? top.querySelector('.top-actions') : null;
+    if (actions) actions.before(nav);
     const items = loggedIn
       ? [
           ['index.html', 'home', 'Home', 'home'],

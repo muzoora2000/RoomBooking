@@ -11,6 +11,7 @@
     "dev": "node --watch server.js",
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
+    "seed:generate": "node src/db/generate_seed.js",
     "test": "node --test tests",
     "test:integration": "node --test tests/integration"
   },
@@ -32,6 +33,7 @@
     "zod": "3.24.1"
   },
   "devDependencies": {
-    "supertest": "7.0.0"
+    "supertest": "7.0.0",
+    "xlsx": "^0.18.5"
   }
 }

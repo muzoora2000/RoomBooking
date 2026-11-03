@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Compass — System Manual | Cavendish University Uganda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy:       #1a3a6e;
+      --navy-dark:  #102650;
+      --navy-soft:  #dde5f5;
+      --navy-mid:   #2a4f8f;
+      --gold:       #e7a531;
+      --gold-soft:  #fff3d6;
+      --ink:        #0f1a2e;
+      --muted:      #5a6a85;
+      --line:       #d5dcea;
+      --surface:    #ffffff;
+      --bg:         #f4f6fa;
+      --danger:     #b3261e;
+      --success:    #1c6b3a;
+      --success-soft:#dff3e6;
+      --radius:     14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    /* ── Print button (hidden on print) ── */
+    .print-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: var(--navy); color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .6rem 1.5rem; gap: 1rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    }
+    .print-bar span { font-size: .85rem; opacity: .8; }
+    .print-btn {
+      background: var(--gold); color: var(--ink); border: 0;
+      padding: .5rem 1.3rem; border-radius: 8px; font-weight: 700;
+      font-size: .88rem; cursor: pointer; font-family: inherit;
+      transition: filter .15s;
+    }
+    .print-btn:hover { filter: brightness(.93); }
+
+    /* ── Page wrapper ── */
+    .doc {
+      max-width: 860px; margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+    }
+
+    /* ── Cover ── */
+    .cover {
+      background: linear-gradient(140deg, var(--navy) 0%, var(--navy-dark) 100%);
+      color: #fff; border-radius: 20px; padding: 3rem 2.5rem;
+      margin-bottom: 2.5rem; position: relative; overflow: hidden;
+    }
+    .cover::before {
+      content: '';
+      position: absolute; top: -60px; right: -60px;
+      width: 280px; height: 280px; border-radius: 50%;
+      background: rgba(255,255,255,.05);
+    }
+    .cover::after {
+      content: '';
+      position: absolute; bottom: -80px; left: -40px;
+      width: 220px; height: 220px; border-radius: 50%;
+      background: rgba(231,165,49,.08);
+    }
+    .cover-top {
+      display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;
+    }
+    .cover-logo {
+      width: 64px; height: 64px; border-radius: 12px;
+      background: #fff; object-fit: contain; flex-shrink: 0;
+    }
+    .cover-uni { line-height: 1.2; }
+    .cover-uni strong { display: block; font-size: 1rem; font-weight: 800; }
+    .cover-uni span { font-size: .8rem; opacity: .7; }
+    .cover-eyebrow {
+      display: inline-block; background: var(--gold); color: var(--ink);
+      font-size: .72rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .12em; padding: .28rem .65rem; border-radius: 99px;
+      margin-bottom: 1rem;
+    }
+    .cover h1 {
+      font-size: clamp(2rem, 5vw, 3rem); font-weight: 900;
+      letter-spacing: -.04em; line-height: 1.05; margin-bottom: .8rem;
+    }
+    .cover h1 span { color: var(--gold); }
+    .cover-sub {
+      font-size: 1.05rem; opacity: .8; max-width: 52ch; line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    .cover-pills { display: flex; flex-wrap: wrap; gap: .45rem; }
+    .pill {
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      color: #fff; font-size: .75rem; font-weight: 600;
+      padding: .3rem .7rem; border-radius: 99px;
+    }
+    .cover-meta {
+      margin-top: 2rem; padding-top: 1.2rem;
+      border-top: 1px solid rgba(255,255,255,.15);
+      display: flex; flex-wrap: wrap; gap: 1.5rem;
+      font-size: .8rem; opacity: .65;
+    }
+
+    /* ── Section ── */
+    section { margin-bottom: 2.2rem; }
+    .section-label {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--navy); margin-bottom: .5rem;
+    }
+    .section-label::before {
+      content: ''; display: block; width: 18px; height: 3px;
+      border-radius: 99px; background: var(--gold);
+    }
+    h2 {
+      font-size: 1.45rem; font-weight: 800; letter-spacing: -.03em;
+      color: var(--navy-dark); margin-bottom: 1rem;
+    }
+    h3 {
+      font-size: 1.05rem; font-weight: 700; color: var(--navy);
+      margin-bottom: .45rem;
+    }
+    p { margin-bottom: .9rem; color: var(--ink); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 1.2rem;
+    }
+    .card-navy {
+      background: var(--navy); color: #fff; border: 0;
+      border-radius: var(--radius); padding: 1.2rem;
+    }
+    .card-navy h3 { color: #fff; }
+    .card-navy p { color: rgba(255,255,255,.8); }
+
+    /* ── Problem / Solution highlight ── */
+    .highlight-box {
+      border-left: 4px solid var(--navy); background: var(--navy-soft);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 1rem 1.2rem; margin-bottom: 1rem;
+    }
+    .highlight-box.gold { border-left-color: var(--gold); background: var(--gold-soft); }
+    .highlight-box.success { border-left-color: var(--success); background: var(--success-soft); }
+
+    /* ── Grid layouts ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem; }
+
+    /* ── Feature list ── */
+    .feature-list { display: grid; gap: .65rem; }
+    .feature-item {
+      display: flex; align-items: flex-start; gap: .85rem;
+      padding: .85rem 1rem; background: var(--surface);
+      border: 1px solid var(--line); border-radius: 12px;
+    }
+    .feature-icon {
+      width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px;
+      background: var(--navy-soft); color: var(--navy);
+      display: grid; place-items: center; font-size: 1.1rem; font-weight: 800;
+    }
+    .feature-item h3 { font-size: .95rem; margin-bottom: .15rem; }
+    .feature-item p { font-size: .83rem; color: var(--muted); margin: 0; }
+
+    /* ── Role cards ── */
+    .role-card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 1rem; text-align: center;
+    }
+    .role-icon {
+      width: 46px; height: 46px; border-radius: 12px;
+      background: var(--navy-soft); color: var(--navy);
+      display: grid; place-items: center; font-size: 1.3rem;
+      margin: 0 auto .6rem;
+    }
+    .role-card h3 { font-size: .9rem; margin-bottom: .3rem; }
+    .role-card p { font-size: .78rem; color: var(--muted); margin: 0; }
+
+    /* ── Step flow ── */
+    .steps { display: grid; gap: .8rem; counter-reset: step; }
+    .step {
+      display: flex; gap: 1rem; align-items: flex-start;
+      counter-increment: step;
+    }
+    .step-num {
+      width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%;
+      background: var(--navy); color: #fff; font-weight: 800;
+      font-size: .9rem; display: grid; place-items: center;
+    }
+    .step-body h3 { font-size: .95rem; margin-bottom: .15rem; }
+    .step-body p { font-size: .83rem; color: var(--muted); margin: 0; }
+
+    /* ── Impact stats ── */
+    .stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-bottom: 1rem; }
+    .stat-box {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 100%);
+      color: #fff; border-radius: var(--radius); padding: 1.1rem; text-align: center;
+    }
+    .stat-box strong { display: block; font-size: 1.9rem; font-weight: 900; letter-spacing: -.04em; color: var(--gold); }
+    .stat-box span { font-size: .78rem; opacity: .8; }
+
+    /* ── Table ── */
+    .table-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+    th { background: var(--navy); color: #fff; padding: .6rem .8rem; text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+    td { padding: .6rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    tr:nth-child(even) td { background: var(--bg); }
+    .badge {
+      display: inline-block; padding: .18rem .5rem; border-radius: 99px;
+      font-size: .72rem; font-weight: 700;
+    }
+    .badge-navy { background: var(--navy-soft); color: var(--navy); }
+    .badge-gold { background: var(--gold-soft); color: #7a4800; }
+    .badge-green { background: var(--success-soft); color: var(--success); }
+
+    /* ── Tech stack ── */
+    .tech-list { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+    .tech-tag {
+      background: var(--navy-soft); color: var(--navy);
+      border: 1px solid #c2d0ec; border-radius: 8px;
+      padding: .32rem .7rem; font-size: .78rem; font-weight: 700;
+    }
+
+    /* ── Divider ── */
+    hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+
+    /* ── Footer ── */
+    .footer {
+      background: var(--navy-dark); color: rgba(255,255,255,.65);
+      border-radius: 14px; padding: 1.5rem; text-align: center;
+      font-size: .8rem; margin-top: 2.5rem;
+    }
+    .footer strong { color: #fff; }
+
+    /* ── Print styles ── */
+    @media print {
+      .print-bar { display: none !important; }
+      body { background: #fff; font-size: 13px; }
+      .doc { padding: 1rem; max-width: 100%; }
+      .cover { border-radius: 12px; }
+      .grid-2, .grid-3, .stat-row { grid-template-columns: repeat(2, 1fr); }
+      a { color: inherit; text-decoration: none; }
+      section { break-inside: avoid; }
+      .feature-item, .role-card, .step { break-inside: avoid; }
+    }
+
+    @media (max-width: 600px) {
+      .grid-2, .grid-3, .stat-row { grid-template-columns: 1fr; }
+      .cover { padding: 2rem 1.2rem; }
+      .doc { padding: 5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Print bar -->
+<div class="print-bar">
+  <span>Campus Compass — System Manual &nbsp;|&nbsp; Cavendish University Uganda</span>
+  <button class="print-btn" onclick="window.print()">⬇ Download / Print PDF</button>
+</div>
+
+<div class="doc">
+
+  <!-- ══════════════════════════════ COVER ══════════════════════════════ -->
+  <div class="cover">
+    <div class="cover-top">
+      <img src="../icons/cavendish-logo.jpg" alt="Cavendish University Uganda Logo" class="cover-logo" />
+      <div class="cover-uni">
+        <strong>Cavendish University Uganda</strong>
+        <span>Educare CC Mundum</span>
+      </div>
+    </div>
+
+    <div class="cover-eyebrow">System Manual &amp; Pitch Document</div>
+
+    <h1>Campus <span>Compass</span></h1>
+    <p class="cover-sub">
+      A smart room booking and campus navigation system that helps every student,
+      lecturer, and administrator at Cavendish University Uganda find the right space,
+      make a booking in seconds, and arrive verified — all from any phone or laptop.
+    </p>
+
+    <div class="cover-pills">
+      <span class="pill">📱 Progressive Web App</span>
+      <span class="pill">🏫 Lecture Room Booking</span>
+      <span class="pill">📚 Revision Room Booking</span>
+      <span class="pill">✅ QR Check-In</span>
+      <span class="pill">🔔 Live Notifications</span>
+      <span class="pill">🖥 Door Display Screen</span>
+      <span class="pill">👤 Multi-Role Access</span>
+    </div>
+
+    <div class="cover-meta">
+      <span>🎓 Built for Cavendish University Uganda</span>
+      <span>🌍 IEEE CUU Student Branch Innovation</span>
+      <span>📅 2026</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ THE PROBLEM ══════════════════════════════ -->
+  <section>
+    <div class="section-label">01 — The Problem</div>
+    <h2>What We Are Solving</h2>
+
+    <div class="highlight-box">
+      <p style="margin:0; font-weight:600;">
+        Every day at Cavendish University Uganda, students and lecturers waste valuable time
+        because there is no reliable way to find and book a room.
+      </p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>🏫 Lecture Room Clashes</h3>
+        <p style="font-size:.87rem; color:var(--muted); margin:0;">
+          Lecturers arrive to find their assigned room already occupied by another class.
+          Timetable clashes are only discovered when two groups show up at the same door,
+          causing disruption and wasted contact hours.
+        </p>
+      </div>
+      <div class="card">
+        <h3>📚 The Revision Room Struggle</h3>
+        <p style="font-size:.87rem; color:var(--muted); margin:0;">
+          Students organising group study and revision sessions — especially during exam
+          season — have no way to check which rooms are vacant or reserve a space in advance.
+          They wander the campus losing study time they cannot afford to lose.
+        </p>
+      </div>
+      <div class="card">
+        <h3>📋 Manual, Slow Coordination</h3>
+        <p style="font-size:.87rem; color:var(--muted); margin:0;">
+          Class representatives must physically visit the admin office or make phone calls
+          just to request a room. Notice boards and spreadsheets are updated too slowly
+          to reflect real availability.
+        </p>
+      </div>
+      <div class="card">
+        <h3>🚪 Empty Rooms, No Visibility</h3>
+        <p style="font-size:.87rem; color:var(--muted); margin:0;">
+          Rooms sit empty because nobody knows they are available. The university has the
+          physical space — the problem is that this information is invisible to the people
+          who need it most.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ THE SOLUTION ══════════════════════════════ -->
+  <section>
+    <div class="section-label">02 — The Solution</div>
+    <h2>How Campus Compass Works</h2>
+
+    <p>
+      Campus Compass is a <strong>Progressive Web App (PWA)</strong> — no download, no
+      installation. Any student or staff member opens it in their browser and immediately
+      has access to live room availability, bookings, schedules, and notifications.
+    </p>
+
+    <div class="feature-list">
+
+      <div class="feature-item">
+        <div class="feature-icon">🔍</div>
+        <div>
+          <h3>Find Any Space — Live</h3>
+          <p>Search lecture halls, seminar rooms, labs, and discussion rooms by building,
+          capacity, or equipment. Availability is shown in real time — no guessing,
+          no walking around.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">📚</div>
+        <div>
+          <h3>Instant Revision Room Booking</h3>
+          <p>Students can browse all available spaces, filter by group size and facilities,
+          and reserve a revision or study room in seconds — directly from their phone,
+          without visiting any office. The system automatically prevents double bookings
+          and notifies the student with a confirmation.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">🏫</div>
+        <div>
+          <h3>Clash-Free Lecture Scheduling</h3>
+          <p>Priority rules, capacity checks, and database-level exclusion constraints
+          guarantee that two sessions can never occupy the same room at the same time.
+          Timetable conflicts are caught automatically before they cause disruption.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">📱</div>
+        <div>
+          <h3>QR Check-In at the Door</h3>
+          <p>Every room has a door display screen. Students and lecturers scan a rotating
+          QR code on arrival to confirm their attendance — secure, instant, and privacy-friendly.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">🎓</div>
+        <div>
+          <h3>Physical, Online &amp; Hybrid Sessions</h3>
+          <p>The system supports all three modes. Online meeting links and passcodes are
+          delivered securely only to authorised participants — they never appear on public
+          displays or notice boards.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">🔔</div>
+        <div>
+          <h3>Smart Notifications</h3>
+          <p>Booking confirmations, reminders, cancellations, and no-show alerts are
+          delivered via email, SMS (Africa's Talking), and browser push notifications —
+          so no one is ever caught off guard.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">🖥</div>
+        <div>
+          <h3>Room Door Display Screen</h3>
+          <p>Each room's display shows the current session, the next scheduled booking,
+          live occupancy status, and a QR code for check-in. Administrators can deploy
+          any screen (TV, tablet, monitor) as a door display with a single setup step.</p>
+        </div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-icon">⚙️</div>
+        <div>
+          <h3>Admin Control Dashboard</h3>
+          <p>Department administrators manage rooms, timetables, users, bookings, and
+          notifications from a single dashboard. System administrators have full
+          oversight across all departments and facilities.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ HOW TO USE ══════════════════════════════ -->
+  <section>
+    <div class="section-label">03 — How To Use It</div>
+    <h2>Step-by-Step User Journey</h2>
+
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+      <div>
+        <h3 style="margin-bottom:.8rem; color:var(--navy);">👩‍🎓 Student Booking a Revision Room</h3>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h3>Open Campus Compass</h3>
+              <p>Visit the app URL on any phone or laptop browser — no installation needed.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h3>Log in with Student ID</h3>
+              <p>Enter your university ID number and password. A one-time PIN is sent for verification.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h3>Browse Available Rooms</h3>
+              <p>Tap "Find a room", filter by date, time, capacity, and type (seminar room, lab, etc.).</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h3>Book in Seconds</h3>
+              <p>Select a room, enter the session name and group size, and confirm. The system checks for clashes instantly.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <h3>Receive Confirmation</h3>
+              <p>A confirmation notification is sent via email and SMS with all booking details.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">6</div>
+            <div class="step-body">
+              <h3>Check In on Arrival</h3>
+              <p>Scan the QR code on the room's door display screen to confirm attendance.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="margin-bottom:.8rem; color:var(--navy);">👨‍🏫 Lecturer Confirming a Lecture Room</h3>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h3>Log in</h3>
+              <p>Sign in with your staff ID. Your upcoming lectures appear on the home screen immediately.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h3>View Today's Schedule</h3>
+              <p>See all your assigned rooms, times, and lecture details — before leaving home.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h3>Get Reminders</h3>
+              <p>Automatic reminders are sent 30 minutes before each session via SMS and push notification.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-body">
+              <h3>Arrive and Check In</h3>
+              <p>Scan the door QR code. The room display updates to show your lecture as active.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-body">
+              <h3>Share Online Link (if hybrid)</h3>
+              <p>For hybrid/online sessions, a secure meeting link is sent only to enrolled students.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ WHO USES IT ══════════════════════════════ -->
+  <section>
+    <div class="section-label">04 — User Roles</div>
+    <h2>Who Uses Campus Compass</h2>
+
+    <div class="grid-3">
+      <div class="role-card">
+        <div class="role-icon">👩‍🎓</div>
+        <h3>Student</h3>
+        <p>Browse rooms, book revision spaces, view their timetable, join lectures, and check in at the door.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">📣</div>
+        <h3>Class Representative</h3>
+        <p>Book rooms on behalf of their class, manage class bookings, and coordinate revision sessions.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">👨‍🏫</div>
+        <h3>Lecturer</h3>
+        <p>View assigned lecture rooms, check their schedule, manage their sessions, and check in on arrival.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🏢</div>
+        <h3>Department Admin</h3>
+        <p>Manage rooms, approve bookings, create timetable slots, and oversee department activity.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🔑</div>
+        <h3>Super Admin</h3>
+        <p>Full control over all departments, users, facilities, system settings, and operational reports.</p>
+      </div>
+      <div class="role-card">
+        <div class="role-icon">🖥</div>
+        <h3>Door Display</h3>
+        <p>A dedicated screen mode for room entrances — shows current session, next booking, and a live QR code.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ KEY FEATURES TABLE ══════════════════════════════ -->
+  <section>
+    <div class="section-label">05 — Feature Overview</div>
+    <h2>What the System Includes</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Who Benefits</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Real-time room availability</strong><br><span style="font-size:.8rem;color:var(--muted);">Live search by building, capacity, type, date &amp; time</span></td>
+            <td>Students, Lecturers, Admins</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Revision room booking</strong><br><span style="font-size:.8rem;color:var(--muted);">Self-service booking for study and revision groups</span></td>
+            <td>Students, Class Reps</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Lecture room scheduling</strong><br><span style="font-size:.8rem;color:var(--muted);">Timetable management with automatic clash prevention</span></td>
+            <td>Lecturers, Dept Admins</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>QR code check-in</strong><br><span style="font-size:.8rem;color:var(--muted);">Rotating secure QR at the door — no apps required</span></td>
+            <td>Students, Lecturers</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Door display screen</strong><br><span style="font-size:.8rem;color:var(--muted);">Any screen becomes a smart room sign</span></td>
+            <td>All campus visitors</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Email &amp; SMS notifications</strong><br><span style="font-size:.8rem;color:var(--muted);">Confirmations, reminders, cancellations, alerts</span></td>
+            <td>All users</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Hybrid / Online session support</strong><br><span style="font-size:.8rem;color:var(--muted);">Secure meeting links delivered only to enrolled users</span></td>
+            <td>Lecturers, Students</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>No-show auto-release</strong><br><span style="font-size:.8rem;color:var(--muted);">Rooms are released if check-in is missed — no waste</span></td>
+            <td>All users</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Admin dashboard</strong><br><span style="font-size:.8rem;color:var(--muted);">Full management of rooms, users, timetables &amp; reports</span></td>
+            <td>Dept Admins, Super Admin</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+          <tr>
+            <td><strong>Offline support (PWA)</strong><br><span style="font-size:.8rem;color:var(--muted);">Works on slow or no connection — cached intelligently</span></td>
+            <td>All users</td>
+            <td><span class="badge badge-green">✓ Live</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ THE IMPACT ══════════════════════════════ -->
+  <section>
+    <div class="section-label">06 — The Impact</div>
+    <h2>What This Means for Cavendish University</h2>
+
+    <div class="stat-row">
+      <div class="stat-box">
+        <strong>29</strong>
+        <span>Rooms across campus already in the system</span>
+      </div>
+      <div class="stat-box">
+        <strong>335</strong>
+        <span>Modules mapped to rooms and timetable slots</span>
+      </div>
+      <div class="stat-box">
+        <strong>0</strong>
+        <span>App downloads needed — works in any browser</span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="highlight-box success">
+        <h3 style="color:var(--success); margin-bottom:.3rem;">⏱ Time Saved</h3>
+        <p style="margin:0; font-size:.87rem;">
+          Students and lecturers no longer spend time walking campus looking for rooms or
+          queuing at administration offices. Every booking takes under 60 seconds.
+        </p>
+      </div>
+      <div class="highlight-box gold">
+        <h3 style="color:#7a4800; margin-bottom:.3rem;">🏫 Better Space Utilisation</h3>
+        <p style="margin:0; font-size:.87rem;">
+          Rooms are released automatically when no one checks in, ensuring that available
+          spaces are visible and bookable — not locked away in a spreadsheet.
+        </p>
+      </div>
+      <div class="highlight-box">
+        <h3 style="margin-bottom:.3rem;">📚 Fairer Access for Students</h3>
+        <p style="margin:0; font-size:.87rem;">
+          Every student has equal, transparent access to book a revision room — not just
+          those who know which administrator to call or which notice board to check.
+        </p>
+      </div>
+      <div class="highlight-box">
+        <h3 style="margin-bottom:.3rem;">⚡ Reduced Admin Workload</h3>
+        <p style="margin:0; font-size:.87rem;">
+          Reminders, no-show releases, clash detection, and booking confirmations all run
+          automatically. Administrators focus on decisions, not manual coordination.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ TECHNOLOGY ══════════════════════════════ -->
+  <section>
+    <div class="section-label">07 — Technology</div>
+    <h2>Built for Africa, Designed to Scale</h2>
+
+    <p>
+      Campus Compass is built with proven, production-grade technology and deployed on
+      free-tier cloud services — meaning it costs very little to run and can scale to
+      the entire university without significant IT investment.
+    </p>
+
+    <div class="tech-list">
+      <span class="tech-tag">Node.js 20</span>
+      <span class="tech-tag">Express API</span>
+      <span class="tech-tag">PostgreSQL</span>
+      <span class="tech-tag">Neon (Cloud DB)</span>
+      <span class="tech-tag">Vercel (Frontend)</span>
+      <span class="tech-tag">Render (Backend)</span>
+      <span class="tech-tag">Progressive Web App</span>
+      <span class="tech-tag">Africa's Talking SMS</span>
+      <span class="tech-tag">Web Push Notifications</span>
+      <span class="tech-tag">QR Code Check-In</span>
+      <span class="tech-tag">GitHub CI/CD</span>
+      <span class="tech-tag">Africa/Kampala Timezone</span>
+    </div>
+
+    <div class="card-navy">
+      <h3>Why a PWA?</h3>
+      <p>
+        A Progressive Web App works on any phone or laptop browser — Android, iPhone, Windows, or Chromebook.
+        No Play Store, no App Store, no storage space needed. Students on limited data plans benefit
+        from intelligent caching that makes the app work even with poor connectivity.
+        This removes every barrier to adoption.
+      </p>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ══════════════════════════════ WHAT MAKES IT WORTH IT ══════════════════════════════ -->
+  <section>
+    <div class="section-label">08 — Why This Idea Is Worth It</div>
+    <h2>What Makes Campus Compass Worth Exploring at Cavendish</h2>
+
+    <div class="feature-list">
+      <div class="feature-item">
+        <div class="feature-icon">✅</div>
+        <div>
+          <h3>It Already Works</h3>
+          <p>Campus Compass is not a concept or a wireframe. It is a fully functional system
+          with 29 rooms, 335 modules, 31 lecturers, and 21 programmes already loaded — built
+          specifically for Cavendish University Uganda.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🎯</div>
+        <div>
+          <h3>Solves a Real Daily Problem</h3>
+          <p>Every student and lecturer on campus experiences the room problem every single day.
+          This is not a theoretical pain point — it is a real, measurable cost to
+          teaching quality and student productivity.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">💰</div>
+        <div>
+          <h3>Low Cost to Deploy</h3>
+          <p>The entire system runs on free-tier cloud services. The university does not need
+          to buy servers, install software, or hire a dedicated IT team to run it.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📈</div>
+        <div>
+          <h3>Scales With the University</h3>
+          <p>As Cavendish grows — more students, more rooms, more departments — Campus Compass
+          scales with it. Labs, seminar rooms, and any bookable facility can be added.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🌍</div>
+        <div>
+          <h3>Built for Uganda</h3>
+          <p>Africa's Talking SMS integration, Kampala timezone, and offline PWA support make
+          this system designed for the real conditions students and staff face on campus —
+          not imported from a different context.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════ FOOTER ══════════════════════════════ -->
+  <div class="footer">
+    <p style="margin-bottom:.4rem;">
+      <strong>Campus Compass</strong> &nbsp;—&nbsp; Cavendish University Uganda
+    </p>
+    <p style="margin-bottom:.4rem;">
+      IEEE CUU Student Branch &nbsp;|&nbsp; Innovation Pitch 2026
+    </p>
+    <p style="opacity:.6; font-size:.75rem; margin:0;">
+      "Know the room. Own the day." &nbsp;—&nbsp;
+      Find the right space, see what is free, book in seconds, and arrive verified.
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

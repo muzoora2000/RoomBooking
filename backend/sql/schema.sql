@@ -106,9 +106,16 @@ CREATE TABLE IF NOT EXISTS modules (
   code text NOT NULL UNIQUE,
   name text NOT NULL,
   department_id uuid NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  programme_id uuid REFERENCES programmes(id) ON DELETE SET NULL,
   lecturer_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  credit_units integer NOT NULL DEFAULT 3 CHECK (credit_units BETWEEN 1 AND 10),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Keep existing databases in step with the module columns added in later seeds.
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS programme_id uuid REFERENCES programmes(id) ON DELETE SET NULL;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS credit_units integer NOT NULL DEFAULT 3;
+CREATE INDEX IF NOT EXISTS modules_programme_idx ON modules (programme_id);
 
 CREATE TABLE IF NOT EXISTS class_modules (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

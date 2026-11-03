@@ -5,7 +5,16 @@ import { config } from '../config.js';
 import { acquire, closePool, sleeping } from './pool.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const seedPath = path.resolve(here, '..', '..', 'sql', 'seed.sql');
+const sqlDir = path.resolve(here, '..', '..', 'sql');
+const schemaPath = path.join(sqlDir, 'schema.sql');
+const demoSeedPath = path.join(sqlDir, 'seed.sql');
+const cavendishSeedPath = path.join(sqlDir, 'seed_cavendish.sql');
+
+async function applyFile(client, file, label) {
+  const sql = await fs.readFile(file, 'utf8');
+  console.log(`Applying ${label} (safe to re-run)...`);
+  await client.query(sql);
+}
 
 async function main() {
   if (!config.databaseUrl) {
@@ -13,7 +22,6 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  const sql = await fs.readFile(seedPath, 'utf8');
   let client;
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -27,14 +35,18 @@ async function main() {
   }
   if (!client) throw lastError;
   try {
-    console.log('Applying sql/seed.sql (safe to re-run)...');
-    await client.query(sql);
+    await applyFile(client, schemaPath, 'sql/schema.sql');
+    await applyFile(client, demoSeedPath, 'sql/seed.sql');
+    await applyFile(client, cavendishSeedPath, 'sql/seed_cavendish.sql');
     const counts = await client.query(`
       SELECT
         (SELECT count(*) FROM departments) AS departments,
+        (SELECT count(*) FROM programmes) AS programmes,
+        (SELECT count(*) FROM classes) AS classes,
         (SELECT count(*) FROM users) AS users,
+        (SELECT count(*) FROM modules) AS modules,
         (SELECT count(*) FROM facilities) AS facilities,
-        (SELECT count(*) FROM bookings) AS bookings
+        (SELECT count(*) FROM timetable_slots) AS timetable_slots
     `);
     console.log('Seed complete:', counts.rows[0]);
     console.log('Demo login: SUPER001 / ChangeMe#2026 (super admin), all other seeded users use Campus#2026, PIN 246810.');

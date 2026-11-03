@@ -7,7 +7,7 @@ BEGIN;
 INSERT INTO departments (id, code, name) VALUES
   ('d1000000-0000-4000-8000-000000000001', 'CSC', 'Computer Science'),
   ('d1000000-0000-4000-8000-000000000002', 'ENG', 'Engineering'),
-  ('d1000000-0000-4000-8000-000000000003', 'BUS', 'Business')
+  ('d1000000-0000-4000-8000-000000000003', 'BIZ', 'Business')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO programmes (id, department_id, code, name, duration_years) VALUES

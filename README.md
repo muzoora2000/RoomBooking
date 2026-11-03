@@ -72,6 +72,8 @@ Missing email, SMS, or push credentials do not silently disappear. Delivery atte
 - `backend/sql/schema.sql` is the source of truth. It is idempotent and creates extensions, tables, indexes, constraints, triggers, and exclusion rules.
 - All timestamps are `TIMESTAMPTZ` in UTC. User-entered times and display times use `Africa/Kampala`.
 - `backend/sql/seed.sql` is safe to re-run. It creates demo departments, classes, modules, facilities, timetable slots, users, bookings, and settings.
+- `backend/sql/seed_cavendish.sql` is generated from the Cavendish timetable workbook and seeds the real faculties, programmes, classes, lecturers, modules, rooms and timetable slots. `npm run seed` applies the demo seed and then this file; `npm run migrate` applies it once and records a `cavendish_seed_applied` marker.
+- Regenerate the Cavendish seed with `npm run seed:generate`. It reads the workbook from `CAVENDISH_EXCEL` or the default path in `backend/src/db/generate_seed.js`.
 - A booking uses the same generated UUID for `bookings.id` and `bookings.session_id`.
 - Room availability is protected by GiST exclusion constraints plus application-side clash and priority checks.
 - `no_shows.booking_id` is unique so a booking can be marked as a no-show only once.
@@ -88,7 +90,7 @@ Seed credentials:
 | `DEP001` | `deputy_rep` | `Campus#2026` |
 | `STU001`, `STU002`, `STU003` | `student` (physical, online, hybrid) | `Campus#2026` |
 
-Demo PIN for every seeded account: `246810`.
+Demo PIN for every seeded account: `246810`. Lecturer accounts generated from the Cavendish workbook use password `Cavendish@2026`.
 
 Raw ID QR tokens and the demo display key are defined in `backend/sql/seed.sql`. Change all demo credentials and secrets before any real deployment.
 

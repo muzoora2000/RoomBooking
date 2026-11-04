@@ -8,7 +8,14 @@ assertServerEnvironment();
 
 // Run schema migration on every startup so column additions in schema.sql are applied
 // to the live database without needing a separate migration step.
-await runMigration();
+// If the migration fails we log the error and continue — a partial schema is better
+// than a crashed server, and the error will appear in Render logs for diagnosis.
+try {
+  await runMigration();
+} catch (migrationError) {
+  console.error('[api] MIGRATION FAILED — server will start but some features may not work:', migrationError.message);
+  if (migrationError.position) console.error('[api] SQL position:', migrationError.position);
+}
 
 let queueTimer = null;
 let shuttingDown = false;

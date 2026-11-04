@@ -423,19 +423,54 @@ async function createOne({
     if (error?.code === '23514') {
       throw new AppError(400, 'BOOKING_CONSTRAINT', 'The booking details are inconsistent. Physical bookings need a room, online bookings need a meeting link. Please check your selections and try again.');
     }
-    // Column does not exist — schema migration may be needed
+    // Column does not exist — booked_by_role or is_locked may be missing; retry without them
     if (error?.code === '42703') {
-      throw new AppError(500, 'SCHEMA_ERROR', 'A database column is missing. Please contact the system administrator to run the latest migration.');
-    }
-    // Not-null constraint violated
-    if (error?.code === '23502') {
+      console.warn('[booking] INSERT fell back to base columns (migration pending):', error.message);
+      try {
+        await client.query(
+          `INSERT INTO bookings (
+             id, session_id, user_id, facility_id, module_id, lecturer_id,
+             session_mode, online_platform, online_link, meeting_passcode,
+             start_at, end_at, status, priority, source, entry_point, purpose,
+             recurrence_group_id
+           ) VALUES (
+             $1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+           )`,
+          [
+            id,
+            user.id,
+            facility?.id || null,
+            isSession ? module.id : null,
+            lecturerId,
+            sessionMode,
+            sessionMode === 'physical' ? null : input.online_platform,
+            onlineLink,
+            sessionMode === 'physical' ? null : input.meeting_passcode || null,
+            startAt,
+            endAt,
+            status,
+            priority,
+            source,
+            input.entry_point || 'app',
+            String(input.purpose || '').trim() || null,
+            recurrenceGroupId
+          ]
+        );
+      } catch (retryError) {
+        if (isPgExclusionViolation(retryError)) {
+          throw new AppError(409, 'TIME_CONFLICT', 'That room or lecturer was just booked by someone else. Choose another time or room.');
+        }
+        throw new AppError(500, 'BOOKING_FAILED', `Booking could not be saved: ${retryError.message || 'database error'}. Please try again.`);
+      }
+    } else if (error?.code === '23502') {
+      // Not-null constraint violated
       throw new AppError(400, 'MISSING_FIELD', `A required booking field is missing: ${error.column || 'unknown'}. Please fill in all required fields.`);
-    }
-    // Foreign key violation
-    if (error?.code === '23503') {
+    } else if (error?.code === '23503') {
+      // Foreign key violation
       throw new AppError(400, 'INVALID_REFERENCE', 'One of the selected rooms, modules, or users no longer exists. Refresh the page and try again.');
+    } else {
+      throw new AppError(500, 'BOOKING_FAILED', `Booking could not be saved: ${error.message || 'database error'}. Please try again or contact support.`);
     }
-    throw new AppError(500, 'BOOKING_FAILED', `Booking could not be saved: ${error.message || 'database error'}. Please try again or contact support.`);
   }
   const row = await getBookingRow(client, id);
   return { row, status, requiresApproval, module, facility, displaced };

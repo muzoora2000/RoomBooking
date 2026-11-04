@@ -594,14 +594,24 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS flagged_for_review boolean NOT NULL D
 ALTER TABLE users ADD COLUMN IF NOT EXISTS flagged_reason text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS anonymized_at timestamptz;
 
--- classes.code is referenced by profiles, admin searches, imports, and schedules.
--- Backfill existing rows, then enforce NOT NULL so the column is always usable.
+-- classes.code: add column, backfill, then set NOT NULL.
+-- Wrapped in a DO block so a backfill failure (e.g. orphaned class row) does
+-- not abort the entire migration transaction and roll back all column additions.
 ALTER TABLE classes ADD COLUMN IF NOT EXISTS code text;
 UPDATE classes c
 SET code = p.code || '-' || c.year_of_study || '-' || upper(replace(c.stream, ' ', ''))
 FROM programmes p
 WHERE p.id = c.programme_id AND c.code IS NULL;
-ALTER TABLE classes ALTER COLUMN code SET NOT NULL;
+-- Provide a safe fallback code for any class still NULL after the join-based backfill
+-- (e.g. if programme_id references a programme that was deleted since the class was created)
+UPDATE classes SET code = 'CLASS-' || substr(id::text, 1, 8) WHERE code IS NULL;
+DO $$
+BEGIN
+  ALTER TABLE classes ALTER COLUMN code SET NOT NULL;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'Could not set classes.code NOT NULL: %', SQLERRM;
+END;
+$$;
 CREATE INDEX IF NOT EXISTS classes_code_idx ON classes (code);
 
 COMMIT;

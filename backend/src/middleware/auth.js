@@ -50,13 +50,33 @@ function bearerToken(req) {
 }
 
 export async function loadUser(userId) {
-  const result = await query(
-    `SELECT id, id_number, name, email, phone, role, department_id, class_id, study_mode,
-            qr_active, is_active, last_verified_at, flagged_for_review, consent_at, sms_link_opt_in
-     FROM users WHERE id = $1`,
-    [userId]
-  );
-  return result.rows[0] || null;
+  try {
+    const result = await query(
+      `SELECT id, id_number, name, email, phone, role, department_id, class_id, study_mode,
+              qr_active, is_active, last_verified_at,
+              COALESCE(flagged_for_review, false) AS flagged_for_review,
+              consent_at,
+              COALESCE(sms_link_opt_in, false) AS sms_link_opt_in
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    // If new columns (flagged_for_review, sms_link_opt_in) are missing from the DB
+    // (migration has not run yet), fall back to the base columns only.
+    if (error?.code === '42703') {
+      console.warn('[auth] loadUser falling back to base columns (migration pending):', error.message);
+      const result = await query(
+        `SELECT id, id_number, name, email, phone, role, department_id, class_id, study_mode,
+                qr_active, is_active, last_verified_at, consent_at,
+                false AS flagged_for_review, false AS sms_link_opt_in
+         FROM users WHERE id = $1`,
+        [userId]
+      );
+      return result.rows[0] || null;
+    }
+    throw error;
+  }
 }
 
 export async function authenticate(req, res, next) {

@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { getUser } from '../auth.js';
 import { escapeHtml, emptyState, errorMessage, debounce } from '../ui.js';
 
 // NOTE: mountChrome() is already called by app.js — do NOT call it again here.
@@ -45,6 +46,18 @@ async function loadData() {
     });
   });
 
+  // Auto-select the logged-in user's own department tab
+  const user = getUser();
+  if (user && user.department_id) {
+    const ownDeptExists = departments.some(d => d.id === user.department_id);
+    if (ownDeptExists) {
+      activeDeptId = user.department_id;
+      tabsEl.querySelectorAll('.chip').forEach(b => {
+        b.classList.toggle('active', b.dataset.deptId === activeDeptId);
+      });
+    }
+  }
+
   render();
 }
 
@@ -70,7 +83,23 @@ function render() {
 
   for (const dept of visibleDepts) {
     const deptProgs = programmes.filter(p => p.department_id === dept.id);
-    if (!deptProgs.length) continue;
+
+    // When searching, skip departments that have no matches at all
+    if (q) {
+      const hasMatch = deptProgs.some(prog => {
+        const progMods = modules.filter(m => m.programme_id === prog.id);
+        return (
+          prog.name.toLowerCase().includes(q) ||
+          prog.code.toLowerCase().includes(q) ||
+          progMods.some(m =>
+            m.name.toLowerCase().includes(q) ||
+            (m.code || '').toLowerCase().includes(q) ||
+            (m.lecturer_name || '').toLowerCase().includes(q)
+          )
+        );
+      });
+      if (!hasMatch) continue;
+    }
 
     const matchingProgs = deptProgs.filter(prog => {
       if (!q) return true;
@@ -86,7 +115,9 @@ function render() {
       );
     });
 
-    if (!matchingProgs.length) continue;
+    totalCourses += matchingProgs.reduce((sum, prog) => {
+      return sum + modules.filter(m => m.programme_id === prog.id && matchesSearch(m, q)).length;
+    }, 0);
 
     html += `
       <section class="card" style="margin-bottom:1.2rem">
@@ -98,7 +129,10 @@ function render() {
           <span class="badge">${matchingProgs.length} programme${matchingProgs.length !== 1 ? 's' : ''}</span>
         </div>
         <div style="padding-top:.5rem">
-          ${matchingProgs.map(prog => renderProgramme(prog, q)).join('')}
+          ${matchingProgs.length
+            ? matchingProgs.map(prog => renderProgramme(prog, q)).join('')
+            : '<p class="muted small" style="padding:.5rem 0">No programmes have been added to this faculty yet.</p>'
+          }
         </div>
       </section>`;
   }
@@ -106,7 +140,7 @@ function render() {
   if (!html) {
     listEl.innerHTML = emptyState(
       'No results',
-      q ? `No courses match "${escapeHtml(q)}".` : 'No programmes found. Data may still be loading from the server.'
+      q ? `No courses match "${escapeHtml(q)}".` : departments.length ? 'No programmes have been added yet. The admin can add them via the Academic tab.' : 'No faculties found. Please check back later.'
     );
     countEl.textContent = '0 courses';
     return;
@@ -115,17 +149,8 @@ function render() {
   listEl.innerHTML = html;
   const deptLabel = activeDeptId
     ? (departments.find(d => d.id === activeDeptId)?.name || 'faculty')
-    : `${visibleDepts.length} faculties`;
+    : `${visibleDepts.length} facilit${visibleDepts.length !== 1 ? 'ies' : 'y'}`;
   countEl.textContent = `${totalCourses} course${totalCourses !== 1 ? 's' : ''} across ${deptLabel}`;
-
-  // fix: totalCourses was used before being incremented — recalculate
-  let tc = 0;
-  for (const dept of visibleDepts) {
-    for (const prog of programmes.filter(p => p.department_id === dept.id)) {
-      tc += modules.filter(m => m.programme_id === prog.id && matchesSearch(m, q)).length;
-    }
-  }
-  countEl.textContent = `${tc} course${tc !== 1 ? 's' : ''} across ${deptLabel}`;
 }
 
 function matchesSearch(m, q) {

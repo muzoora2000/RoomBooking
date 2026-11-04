@@ -292,6 +292,7 @@ router.get(
     if (!isSuper(req.user)) {
       params.push(req.user.department_id);
       conditions.push(`u.department_id = $${params.length}`);
+      conditions.push(`u.role <> 'super_admin'`);
     }
     if (req.query.role) {
       params.push(req.query.role);
@@ -304,6 +305,13 @@ router.get(
     if (req.query.department_id && isSuper(req.user)) {
       params.push(req.query.department_id);
       conditions.push(`u.department_id = $${params.length}`);
+    }
+    if (req.query.status === 'active') {
+      conditions.push('u.is_active = true');
+    } else if (req.query.status === 'inactive') {
+      conditions.push('u.is_active = false');
+    } else if (req.query.status === 'flagged') {
+      conditions.push('u.flagged_for_review = true');
     }
     if (req.query.q) {
       params.push(`%${String(req.query.q).toLowerCase()}%`);
@@ -398,6 +406,41 @@ router.post(
 );
 
 router.get(
+  '/users/overview',
+  asyncHandler(async (req, res) => {
+    const params = [];
+    let scope = '';
+    if (!isSuper(req.user)) {
+      params.push(req.user.department_id);
+      scope = `WHERE u.department_id = $1 AND u.role <> 'super_admin'`;
+    }
+    const [roles, totals] = await Promise.all([
+      query(
+        `SELECT u.role, count(*)::int AS total,
+                count(*) FILTER (WHERE u.is_active)::int AS active,
+                count(*) FILTER (WHERE u.flagged_for_review)::int AS flagged
+         FROM users u ${scope}
+         GROUP BY u.role`,
+        params
+      ),
+      query(
+        `SELECT count(*)::int AS total,
+                count(*) FILTER (WHERE u.is_active)::int AS active,
+                count(*) FILTER (WHERE u.flagged_for_review)::int AS flagged
+         FROM users u ${scope}`,
+        params
+      )
+    ]);
+    res.json({
+      total: totals.rows[0]?.total || 0,
+      active: totals.rows[0]?.active || 0,
+      flagged: totals.rows[0]?.flagged || 0,
+      roles: Object.fromEntries(roles.rows.map((row) => [row.role, row.total]))
+    });
+  })
+);
+
+router.get(
   '/users/:id',
   asyncHandler(async (req, res) => {
     const result = await query(
@@ -408,6 +451,9 @@ router.get(
     );
     const user = result.rows[0];
     if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found.');
+    if (!isSuper(req.user) && user.role === 'super_admin') {
+      throw new AppError(403, 'ROLE_FORBIDDEN', 'Only a super administrator can manage a super administrator account.');
+    }
     if (!isSuper(req.user)) assertDepartmentScope(req.user, user.department_id);
     delete user.password_hash;
     delete user.pin_hash;
@@ -451,6 +497,9 @@ router.patch(
       const existing = await client.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
       const user = existing.rows[0];
       if (!user) throw new AppError(404, 'USER_NOT_FOUND', 'User not found.');
+      if (!isSuper(req.user) && user.role === 'super_admin') {
+        throw new AppError(403, 'ROLE_FORBIDDEN', 'Only a super administrator can manage a super administrator account.');
+      }
       if (!isSuper(req.user)) assertDepartmentScope(req.user, user.department_id);
 
       const has = (key) => Object.prototype.hasOwnProperty.call(req.body, key);

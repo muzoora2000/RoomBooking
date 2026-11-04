@@ -30,6 +30,9 @@ const state = {
   facilityQuery: '',
   userQuery: '',
   userRole: '',
+  userDepartment: '',
+  userStatus: '',
+  userOverview: null,
   timetableSemester: '',
   timetableFrom: '',
   timetableTo: '',
@@ -44,6 +47,38 @@ const state = {
 
 const roleOptions = ['student', 'class_rep', 'deputy_rep', 'lecturer', 'department_admin', 'super_admin'];
 const studyModeRoles = new Set(['student', 'class_rep', 'deputy_rep']);
+const roleCatalog = [
+  {
+    role: 'super_admin',
+    description: 'Full university control across every department, account, role, room, timetable, report, and setting.',
+    scope: 'University-wide'
+  },
+  {
+    role: 'department_admin',
+    description: 'Manages people, rooms, bookings, timetables, and reports inside one department.',
+    scope: 'Department'
+  },
+  {
+    role: 'lecturer',
+    description: 'Manages teaching schedules, attendance, and room bookings for their modules.',
+    scope: 'Teaching'
+  },
+  {
+    role: 'class_rep',
+    description: 'Coordinates class bookings and represents students in the booking workflow.',
+    scope: 'Class'
+  },
+  {
+    role: 'deputy_rep',
+    description: 'Supports the class representative and can act when they are unavailable.',
+    scope: 'Class'
+  },
+  {
+    role: 'student',
+    description: 'Books study rooms, joins waitlists, and manages their own bookings.',
+    scope: 'Personal'
+  }
+];
 const categoryLabels = {
   lecture_room: 'Lecture room',
   discussion_room: 'Discussion room',
@@ -60,13 +95,73 @@ function modeFieldLabel(role) {
   return studyModeRoles.has(role) ? 'Study mode' : 'Working mode';
 }
 
-function bindModeLabel(form) {
+function roleMeta(role) {
+  return roleCatalog.find((item) => item.role === role) || {
+    role,
+    description: 'Standard account access.',
+    scope: 'Standard'
+  };
+}
+
+function visibleRoleCatalog() {
+  return state.me?.role === 'super_admin'
+    ? roleCatalog
+    : roleCatalog.filter((item) => item.role !== 'super_admin');
+}
+
+function assignableRoleOptions(selected = 'student') {
+  return visibleRoleCatalog().map((item) => option(item.role, roleLabel(item.role), item.role === selected)).join('');
+}
+
+function syncUserRoleFields(form) {
   const roleSelect = form.querySelector('#user-form-role');
-  const label = form.querySelector('#user-form-mode-label');
-  if (!roleSelect || !label) return;
-  roleSelect.addEventListener('change', () => {
-    label.textContent = modeFieldLabel(roleSelect.value);
-  });
+  if (!roleSelect) return;
+  const role = roleSelect.value;
+  const isStudent = studyModeRoles.has(role);
+  const isStaff = role === 'lecturer' || role === 'department_admin';
+  const departmentField = form.querySelector('[data-user-department]');
+  const classField = form.querySelector('[data-user-class]');
+  const departmentSelect = form.querySelector('[name="department_id"]');
+  const classSelect = form.querySelector('[name="class_id"]');
+  const modeLabel = form.querySelector('#user-form-mode-label');
+  const roleHint = form.querySelector('#user-form-role-hint');
+
+  departmentField?.classList.toggle('hidden', !isStaff);
+  classField?.classList.toggle('hidden', !isStudent);
+  if (departmentSelect) departmentSelect.required = isStaff;
+  if (classSelect) classSelect.required = isStudent;
+  if (modeLabel) modeLabel.textContent = modeFieldLabel(role);
+  if (roleHint) {
+    roleHint.textContent = role === 'super_admin'
+      ? 'Super administrators have full university-wide access and do not need a department or class.'
+      : isStudent
+        ? 'Choose the class. The department is set automatically from the class.'
+        : 'Choose the department this staff account belongs to.';
+  }
+}
+
+function bindUserRoleFields(form) {
+  const roleSelect = form.querySelector('#user-form-role');
+  if (!roleSelect) return;
+  syncUserRoleFields(form);
+  roleSelect.addEventListener('change', () => syncUserRoleFields(form));
+}
+
+function userAccessPayload(form) {
+  const role = form.querySelector('#user-form-role').value;
+  if (studyModeRoles.has(role)) {
+    return {
+      department_id: null,
+      class_id: form.querySelector('[name="class_id"]').value || null
+    };
+  }
+  if (role === 'super_admin') {
+    return { department_id: null, class_id: null };
+  }
+  return {
+    department_id: form.querySelector('[name="department_id"]').value || null,
+    class_id: null
+  };
 }
 
 function pageHeader(title, subtitle, actions = '') {
@@ -700,16 +795,97 @@ function createDisplay(id) {
   });
 }
 
-async function loadUsers() {
-  content.innerHTML = `
-    ${pageHeader('Users', 'Create accounts, issue ID cards, and manage access.', '<button class="btn" type="button" id="new-user">Add user</button><button class="btn secondary" type="button" id="import-users">Import CSV</button>')}
-    <div class="filters">
-      <input type="search" id="user-search" placeholder="Search name, ID number, or email" value="${escapeHtml(state.userQuery)}">
-      <select id="user-role-filter">${option('', 'All roles', !state.userRole)}${roleOptions.map((role) => option(role, roleLabel(role), state.userRole === role)).join('')}</select>
+function roleBadge(role) {
+  return `<span class="badge role-${escapeHtml(role)}">${escapeHtml(roleLabel(role))}</span>`;
+}
+
+async function refreshUserOverview(force = false) {
+  const container = document.getElementById('user-role-overview');
+  if (!container) return;
+  if (!state.userOverview || force) {
+    container.innerHTML = '<div class="skeleton"></div>';
+    try {
+      state.userOverview = await api.get('/api/admin/users/overview');
+    } catch (error) {
+      container.innerHTML = `<div class="notice danger">${escapeHtml(error.message)}</div>`;
+      return;
+    }
+  }
+  renderUserOverview();
+}
+
+function renderUserOverview() {
+  const container = document.getElementById('user-role-overview');
+  if (!container || !state.userOverview) return;
+  const overview = state.userOverview;
+  const roles = overview.roles || {};
+  container.innerHTML = `
+    <div class="stats">
+      <div class="stat"><strong>${Number(overview.total || 0)}</strong><span>Accounts in scope</span></div>
+      <div class="stat"><strong>${Number(overview.active || 0)}</strong><span>Active accounts</span></div>
+      <div class="stat"><strong>${Number(overview.flagged || 0)}</strong><span>Flagged for review</span></div>
     </div>
-    <div id="admin-users"><div class="skeleton"></div></div>`;
+    <div class="role-guide-grid">
+      ${visibleRoleCatalog().map((item) => `
+        <div class="role-card">
+          <div class="role-card-head">
+            <span class="badge ${escapeHtml(item.role)}">${escapeHtml(roleLabel(item.role))}</span>
+            <span class="role-scope small muted">${escapeHtml(item.scope)}</span>
+          </div>
+          <p class="small muted" style="margin:0">${escapeHtml(item.description)}</p>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+async function refreshUsers({ overview = false } = {}) {
+  if (overview) state.userOverview = null;
+  await Promise.all([refreshUserOverview(), renderAdminUsers()]);
+}
+
+async function loadUsers() {
+  state.userOverview = null;
+  const departmentFilter = state.me.role === 'super_admin'
+    ? `<select id="user-department-filter"><option value="">All departments</option>${state.departments.map((item) => option(item.id, `${item.code}  -  ${item.name}`, state.userDepartment === item.id)).join('')}</select>`
+    : '';
+  content.innerHTML = `
+    ${pageHeader('Users & roles', 'Manage every account, role, department, and access level from one place.', '<button class="btn" type="button" id="new-user">Add user</button><button class="btn secondary" type="button" id="import-users">Import CSV</button>')}
+    <div class="notice ${state.me.role === 'super_admin' ? 'success' : 'info'}">
+      <strong>${state.me.role === 'super_admin' ? 'Full access.' : 'Department access.'}</strong>
+      ${state.me.role === 'super_admin'
+        ? ' You can manage every account and role across all departments.'
+        : ` You are managing accounts in ${escapeHtml(state.me.department_name || 'your department')}. Super administrator accounts are managed centrally.`}
+    </div>
+    <section class="card role-overview" style="margin-top:.9rem">
+      <div class="admin-section-head"><div><h2>Roles and access</h2><p class="muted small">Choose a role to see and manage its members.</p></div></div>
+      <div id="user-role-overview"><div class="skeleton"></div></div>
+    </section>
+    <section class="card" style="margin-top:.9rem">
+      <div class="admin-section-head"><div><h2>People</h2><p class="muted small">Search, filter, and open any account.</p></div></div>
+      <div class="filters">
+        <input type="search" id="user-search" placeholder="Search name, ID number, or email" value="${escapeHtml(state.userQuery)}">
+        <select id="user-role-filter">${option('', 'All roles', !state.userRole)}${visibleRoleCatalog().map((item) => option(item.role, roleLabel(item.role), state.userRole === item.role)).join('')}</select>
+        ${departmentFilter}
+        <select id="user-status-filter">
+          ${option('', 'All statuses', !state.userStatus)}
+          ${option('active', 'Active', state.userStatus === 'active')}
+          ${option('inactive', 'Inactive', state.userStatus === 'inactive')}
+          ${option('flagged', 'Flagged', state.userStatus === 'flagged')}
+        </select>
+        <button class="btn ghost small" type="button" id="clear-user-filters">Clear filters</button>
+      </div>
+      <div id="admin-users"><div class="skeleton"></div></div>
+    </section>`;
   document.getElementById('new-user').addEventListener('click', createUserForm);
   document.getElementById('import-users').addEventListener('click', importUsersForm);
+  document.getElementById('user-role-overview').addEventListener('click', (event) => {
+    const card = event.target.closest('[data-role-filter]');
+    if (!card) return;
+    state.userRole = state.userRole === card.dataset.roleFilter ? '' : card.dataset.roleFilter;
+    document.getElementById('user-role-filter').value = state.userRole;
+    renderUserOverview();
+    renderAdminUsers();
+  });
   document.getElementById('user-search').addEventListener('input', (event) => {
     state.userQuery = event.target.value;
     clearTimeout(loadUsers.timer);
@@ -717,9 +893,30 @@ async function loadUsers() {
   });
   document.getElementById('user-role-filter').addEventListener('change', (event) => {
     state.userRole = event.target.value;
+    renderUserOverview();
     renderAdminUsers();
   });
-  await renderAdminUsers();
+  document.getElementById('user-department-filter')?.addEventListener('change', (event) => {
+    state.userDepartment = event.target.value;
+    renderAdminUsers();
+  });
+  document.getElementById('user-status-filter').addEventListener('change', (event) => {
+    state.userStatus = event.target.value;
+    renderAdminUsers();
+  });
+  document.getElementById('clear-user-filters').addEventListener('click', () => {
+    state.userQuery = '';
+    state.userRole = '';
+    state.userDepartment = '';
+    state.userStatus = '';
+    document.getElementById('user-search').value = '';
+    document.getElementById('user-role-filter').value = '';
+    if (document.getElementById('user-department-filter')) document.getElementById('user-department-filter').value = '';
+    document.getElementById('user-status-filter').value = '';
+    renderUserOverview();
+    renderAdminUsers();
+  });
+  await refreshUsers();
 }
 
 async function renderAdminUsers() {
@@ -730,26 +927,50 @@ async function renderAdminUsers() {
     const result = await api.get(`/api/admin/users${queryString({
       q: state.userQuery || undefined,
       role: state.userRole || undefined,
-      limit: 300
+      department_id: state.userDepartment || undefined,
+      status: state.userStatus || undefined,
+      limit: 500
     })}`);
     const users = result.users || [];
     if (!users.length) {
-      container.innerHTML = emptyState('No users found', 'Try a different search.');
+      container.innerHTML = emptyState('No users match', 'Try a different search or clear the filters.');
       return;
     }
-    container.innerHTML = `<p class="small muted">${users.length} user${users.length === 1 ? '' : 's'}</p><div class="list">${users.map((user) => `
-      <div class="list-item" data-user="${escapeHtml(user.id)}">
-        <span class="avatar">${escapeHtml((user.name || '?').slice(0, 2).toUpperCase())}</span>
-        <div class="main">
-          <div class="chips" style="margin-bottom:.2rem">${user.is_active ? '' : '<span class="badge red">Inactive</span>'}${user.flagged_for_review ? '<span class="badge amber">Flagged</span>' : ''}</div>
-          <h3>${escapeHtml(user.name)}</h3>
-          <p>${escapeHtml(user.id_number)}  -  ${escapeHtml(roleLabel(user.role))}${user.class_code ? `  -  ${escapeHtml(user.class_code)}` : ''}${user.department_code ? `  -  ${escapeHtml(user.department_code)}` : ''}</p>
-          <p>${escapeHtml(user.email)}</p>
-        </div>
-        <button class="btn ghost small" type="button" data-manage-user>Manage</button>
-      </div>`).join('')}</div>`;
+    const groups = visibleRoleCatalog().map((meta) => ({
+      meta,
+      members: users.filter((user) => user.role === meta.role)
+    })).filter((group) => group.members.length);
+    container.innerHTML = `
+      <p class="small muted">Showing ${users.length} account${users.length === 1 ? '' : 's'}${users.length >= 500 ? ' (limit reached; narrow the filters to see more)' : ''}.</p>
+      ${groups.map((group) => `
+        <section class="user-role-group">
+          <div class="role-group-head">
+            <div class="chips">${roleBadge(group.meta.role)}</div>
+            <span class="muted small">${group.members.length} account${group.members.length === 1 ? '' : 's'}</span>
+          </div>
+          <div class="list">${group.members.map((user) => `
+            <div class="list-item" data-user="${escapeHtml(user.id)}">
+              <span class="avatar">${escapeHtml((user.name || '?').slice(0, 2).toUpperCase())}</span>
+              <div class="main">
+                <div class="chips" style="margin-bottom:.2rem">
+                  ${roleBadge(user.role)}
+                  ${user.is_active ? '' : '<span class="badge danger">Inactive</span>'}
+                  ${user.flagged_for_review ? '<span class="badge warning">Flagged</span>' : ''}
+                </div>
+                <h3>${escapeHtml(user.name)}</h3>
+                <p>${escapeHtml(user.id_number)}  -  ${escapeHtml(user.email)}</p>
+                <p>${user.class_code ? `Class ${escapeHtml(user.class_code)}` : ''}${user.class_code && user.department_code ? '  -  ' : ''}${user.department_code ? `Department ${escapeHtml(user.department_code)}` : ''}${!user.class_code && !user.department_code ? 'University-wide' : ''}</p>
+              </div>
+              <div class="user-row-actions">
+                <button class="btn ghost small" type="button" data-manage-user>Manage</button>
+                <button class="btn ghost small" type="button" data-change-role>Change role</button>
+              </div>
+            </div>`).join('')}</div>
+        </section>`).join('')}`;
     container.querySelectorAll('[data-user]').forEach((row) => {
-      row.querySelector('[data-manage-user]').addEventListener('click', () => manageUser(users.find((item) => item.id === row.dataset.user)));
+      const user = users.find((item) => item.id === row.dataset.user);
+      row.querySelector('[data-manage-user]').addEventListener('click', () => manageUser(user));
+      row.querySelector('[data-change-role]').addEventListener('click', () => changeUserRole(user));
     });
   } catch (error) {
     container.innerHTML = `<div class="notice danger">${escapeHtml(error.message)}</div>`;
@@ -765,11 +986,15 @@ function userFormFields(user = null) {
     <div class="field"><label>Email</label><input name="email" type="email" required maxlength="200" value="${escapeHtml(user?.email || '')}"></div>
     <div class="field-row">
       <div class="field"><label>Phone (optional)</label><input name="phone" type="tel" maxlength="30" value="${escapeHtml(user?.phone || '')}"></div>
-      <div class="field"><label>Role</label><select name="role" id="user-form-role">${roleOptions.map((role) => option(role, roleLabel(role), (user?.role || 'student') === role)).join('')}</select></div>
+      <div class="field">
+        <label>Role</label>
+        <select name="role" id="user-form-role">${assignableRoleOptions(user?.role || 'student')}</select>
+        <p class="hint" id="user-form-role-hint"></p>
+      </div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Department</label><select name="department_id">${departmentOptions(user?.department_id || '')}</select></div>
-      <div class="field"><label>Class</label><select name="class_id">${classOptions(user?.class_id || '')}</select></div>
+      <div class="field" data-user-department><label>Department</label><select name="department_id">${departmentOptions(user?.department_id || '')}</select></div>
+      <div class="field" data-user-class><label>Class</label><select name="class_id">${classOptions(user?.class_id || '')}</select></div>
     </div>
     <div class="field-row">
       <div class="field"><label id="user-form-mode-label">${modeFieldLabel(user?.role || 'student')}</label><select name="study_mode" ${user ? 'disabled' : ''}>${['physical', 'online', 'hybrid'].map((mode) => option(mode, mode, (user?.study_mode || 'physical') === mode)).join('')}</select>${user ? '<p class="hint">Students request changes in Settings; staff change their working mode in Settings.</p>' : ''}</div>
@@ -785,7 +1010,7 @@ function createUserForm() {
     footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
   });
   const form = modal.body.querySelector('#user-form');
-  bindModeLabel(form);
+  bindUserRoleFields(form);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
@@ -798,12 +1023,11 @@ function createUserForm() {
         email: data.get('email'),
         phone: data.get('phone') || undefined,
         role: data.get('role'),
-        department_id: data.get('department_id') || null,
-        class_id: data.get('class_id') || null,
+        ...userAccessPayload(form),
         study_mode: data.get('study_mode')
       });
       modal.close();
-      await renderAdminUsers();
+      await refreshUsers({ overview: true });
       openModal({
         title: 'Account created',
         content: `
@@ -843,7 +1067,7 @@ function importUsersForm() {
     try {
       const result = await api.post('/api/admin/users/import', { csv: form.querySelector('textarea').value });
       resultBox.innerHTML = `<div class="notice ${result.failed ? 'warning' : 'success'}">${result.created} created, ${result.failed} failed of ${result.total}.</div>${(result.results || []).filter((item) => item.status === 'failed').map((item) => `<p class="small danger-text">Line ${item.line}: ${escapeHtml(item.error)}</p>`).join('')}`;
-      await renderAdminUsers();
+      await refreshUsers({ overview: true });
     } catch (error) {
       setButtonLoading(button, false);
       const box = form.querySelector('[data-error]');
@@ -863,7 +1087,12 @@ async function manageUser(user) {
     const result = await api.get(`/api/admin/users/${encodeURIComponent(user.id)}`);
     const detail = result.user;
     const counts = result.booking_counts || {};
+    const access = roleMeta(detail.role);
     modal.body.innerHTML = `
+      <div class="notice info" style="margin-bottom:.8rem">
+        <strong>${escapeHtml(roleLabel(detail.role))}</strong> - ${escapeHtml(access.description)}
+        <span class="role-scope">${escapeHtml(access.scope)} access</span>
+      </div>
       <div class="detail-grid">
         <div><span>ID number</span><div>${escapeHtml(detail.id_number)}</div></div>
         <div><span>Role</span><div>${escapeHtml(roleLabel(detail.role))}</div></div>
@@ -876,7 +1105,8 @@ async function manageUser(user) {
       </div>
       ${(result.no_shows || []).length ? `<h3 style="margin-top:.8rem">Recent no-shows</h3><div class="list">${result.no_shows.slice(0, 5).map((item) => `<div class="list-item"><div class="main"><h3>${escapeHtml(formatDate(item.marked_at, { dateStyle: 'medium' }))}</h3><p>${escapeHtml(item.reason || '')}</p></div></div>`).join('')}</div>` : ''}
       <div class="card-actions" style="margin-top:.9rem">
-        <button class="btn small" type="button" data-user-action="edit">Edit</button>
+        <button class="btn small" type="button" data-user-action="role">Change role</button>
+        <button class="btn small secondary" type="button" data-user-action="edit">Edit details</button>
         <button class="btn small secondary" type="button" data-user-action="id-card">Print ID card</button>
         <button class="btn small ghost" type="button" data-user-action="reset">Reset password</button>
         <button class="btn small ghost" type="button" data-user-action="unlock">Unlock</button>
@@ -886,7 +1116,10 @@ async function manageUser(user) {
       button.addEventListener('click', async () => {
         const action = button.dataset.userAction;
         try {
-          if (action === 'edit') {
+          if (action === 'role') {
+            modal.close();
+            changeUserRole(detail);
+          } else if (action === 'edit') {
             modal.close();
             editUserForm(detail);
           } else if (action === 'id-card') {
@@ -921,6 +1154,89 @@ async function manageUser(user) {
   }
 }
 
+function changeUserRole(user) {
+  const access = roleMeta(user.role);
+  const modal = openModal({
+    title: `Change role - ${user.name}`,
+    content: `
+      <form id="change-role-form">
+        <div class="notice info" style="margin-bottom:.8rem">
+          <strong>Current role: ${escapeHtml(roleLabel(user.role))}</strong> - ${escapeHtml(access.description)}
+        </div>
+        <div class="field">
+          <label>New role</label>
+          <select name="role" id="change-role-select">${assignableRoleOptions(user.role)}</select>
+          <p class="hint" id="change-role-hint"></p>
+        </div>
+        <div class="field" data-role-department>
+          <label>Department</label>
+          <select name="department_id">${departmentOptions(user.department_id || state.me.department_id || '')}</select>
+        </div>
+        <div class="field" data-role-class>
+          <label>Class</label>
+          <select name="class_id">${classOptions(user.class_id || '')}</select>
+        </div>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn wide" type="submit">Save role</button>
+      </form>`,
+    footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
+  });
+  const form = modal.body.querySelector('#change-role-form');
+  const roleSelect = form.querySelector('#change-role-select');
+  const departmentField = form.querySelector('[data-role-department]');
+  const classField = form.querySelector('[data-role-class]');
+  const departmentSelect = form.querySelector('[name="department_id"]');
+  const classSelect = form.querySelector('[name="class_id"]');
+  const hint = form.querySelector('#change-role-hint');
+
+  function syncRoleFields() {
+    const role = roleSelect.value;
+    const isStudent = studyModeRoles.has(role);
+    const isStaff = role === 'lecturer' || role === 'department_admin';
+    departmentField.classList.toggle('hidden', !isStaff);
+    classField.classList.toggle('hidden', !isStudent);
+    departmentSelect.required = isStaff;
+    classSelect.required = isStudent;
+    hint.textContent = role === 'super_admin'
+      ? 'Full university-wide access. No department or class is required.'
+      : isStudent
+        ? 'Students and class representatives need a class. The department is set from the class.'
+        : 'Staff accounts need a department.';
+  }
+
+  syncRoleFields();
+  roleSelect.addEventListener('change', syncRoleFields);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    const role = roleSelect.value;
+    const payload = { role };
+    if (studyModeRoles.has(role)) {
+      payload.department_id = null;
+      payload.class_id = classSelect.value || null;
+    } else if (role === 'super_admin') {
+      payload.department_id = null;
+      payload.class_id = null;
+    } else {
+      payload.department_id = departmentSelect.value || null;
+      payload.class_id = null;
+    }
+    setButtonLoading(button, true, 'Saving...');
+    try {
+      await api.patch(`/api/admin/users/${encodeURIComponent(user.id)}`, payload);
+      modal.close();
+      toast('Role updated.', 'success');
+      await refreshUsers({ overview: true });
+    } catch (error) {
+      setButtonLoading(button, false);
+      const box = form.querySelector('[data-error]');
+      box.textContent = error.message;
+      box.classList.remove('hidden');
+    }
+  });
+}
+
 function editUserForm(user) {
   const modal = openModal({
     title: 'Edit user',
@@ -928,7 +1244,7 @@ function editUserForm(user) {
     footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
   });
   const form = modal.body.querySelector('#edit-user-form');
-  bindModeLabel(form);
+  bindUserRoleFields(form);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = form.querySelector('button[type="submit"]');
@@ -938,15 +1254,14 @@ function editUserForm(user) {
       await api.patch(`/api/admin/users/${encodeURIComponent(user.id)}`, {
         name: data.get('name'),
         role: data.get('role'),
-        department_id: data.get('department_id') || null,
-        class_id: data.get('class_id') || null,
+        ...userAccessPayload(form),
         is_active: data.get('is_active') === 'true',
         flagged_for_review: data.get('flagged_for_review') === 'on',
         flagged_reason: data.get('flagged_reason') || null
       });
       modal.close();
       toast('User updated.', 'success');
-      await renderAdminUsers();
+      await refreshUsers({ overview: true });
     } catch (error) {
       setButtonLoading(button, false);
       const box = form.querySelector('[data-error]');

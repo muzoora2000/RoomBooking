@@ -12,6 +12,7 @@ import {
 const listContainer = document.getElementById('notifications-list');
 const loadMoreButton = document.getElementById('load-more');
 const markAllButton = document.getElementById('mark-all');
+const clearAllButton = document.getElementById('clear-all');
 const pushButton = document.getElementById('push-toggle');
 const pushStatus = document.getElementById('push-status');
 const pushMessage = document.getElementById('push-message');
@@ -110,6 +111,24 @@ async function openNotification(id) {
     window.location.href = link;
   } else {
     render();
+  }
+}
+
+async function clearAll() {
+  const confirmed = window.confirm('Delete all notifications? This cannot be undone.');
+  if (!confirmed) return;
+  if (clearAllButton) clearAllButton.disabled = true;
+  try {
+    await api.delete('/api/notifications/all');
+    notifications = [];
+    nextBefore = null;
+    render();
+    if (typeof window.campusRefreshUnread === 'function') window.campusRefreshUnread();
+    toast('All notifications cleared.', 'success');
+  } catch (error) {
+    toast(error.message, 'error');
+  } finally {
+    if (clearAllButton) clearAllButton.disabled = false;
   }
 }
 
@@ -221,6 +240,7 @@ listContainer.addEventListener('click', (event) => {
 
 loadMoreButton.addEventListener('click', () => load({ append: true }).catch(notifyError));
 markAllButton.addEventListener('click', () => markAllRead().catch(notifyError));
+if (clearAllButton) clearAllButton.addEventListener('click', () => clearAll().catch(notifyError));
 pushButton.addEventListener('click', () => togglePush().catch(notifyError));
 
 tabs.forEach((tab) => {

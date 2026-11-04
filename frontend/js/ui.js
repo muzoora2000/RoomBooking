@@ -25,7 +25,9 @@ const SVG = {
   door: '<path d="M4 21h16"/><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><path d="M14 12h.01"/>',
   alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
   chevron: '<path d="m9 18 6-6-6-6"/>',
-  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>'
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  sun: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>'
 };
 
 export function icon(name, className = '') {
@@ -220,6 +222,14 @@ export function cachedUser() {
   }
 }
 
+// Apply saved theme on every page load (runs once at import time)
+(function initTheme() {
+  const saved = localStorage.getItem('campus.theme');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+
 export function mountChrome(active = '') {
   const user = cachedUser();
   const loggedIn = Boolean(localStorage.getItem('campus.token'));
@@ -241,11 +251,35 @@ export function mountChrome(active = '') {
             </a>
             ${admin ? `<a class="icon-btn" href="admin.html" aria-label="Administration">${icon('shield')}</a>` : ''}
             <a class="icon-btn" href="settings.html" aria-label="Settings">${icon('settings')}</a>
+            <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark/light mode" title="Toggle dark/light mode">
+              ${icon('moon')}
+            </button>
+            <button type="button" class="signout-btn" data-logout aria-label="Sign out">
+              ${icon('logout')}<span>Sign out</span>
+            </button>
           ` : `
+            <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark/light mode" title="Toggle dark/light mode">
+              ${icon('moon')}
+            </button>
             <a class="btn secondary small" href="login.html" style="font-size:.85rem;padding:.4rem .9rem">Sign in</a>
           `}
         </div>
       </div>`;
+    // Wire up theme toggle
+    const themeBtn = top.querySelector('#theme-toggle-btn');
+    if (themeBtn) {
+      const currentTheme = localStorage.getItem('campus.theme') || 'light';
+      themeBtn.innerHTML = currentTheme === 'dark' ? icon('sun') : icon('moon');
+      themeBtn.addEventListener('click', () => {
+        const html = document.documentElement;
+        const isDark = html.getAttribute('data-theme') === 'dark';
+        const next = isDark ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('campus.theme', next);
+        themeBtn.innerHTML = next === 'dark' ? icon('sun') : icon('moon');
+        themeBtn.setAttribute('aria-label', next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+      });
+    }
   }
   if (nav) {
     nav.className = 'top-nav';

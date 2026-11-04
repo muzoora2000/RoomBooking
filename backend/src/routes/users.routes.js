@@ -213,14 +213,32 @@ router.get(
 router.get(
   '/overview',
   asyncHandler(async (req, res) => {
+    const user = req.user;
+    const isAdmin = user.role === 'super_admin' || user.role === 'department_admin';
+    // For admins: count all upcoming bookings in their scope (dept or university-wide)
+    // For regular users: count only their own upcoming bookings
+    let upcomingBookingsSql;
+    const params = [user.id];
+    if (isAdmin && user.role === 'super_admin') {
+      upcomingBookingsSql = `(SELECT count(*)::int FROM bookings WHERE status IN ('pending','confirmed') AND start_at > now())`;
+    } else if (isAdmin && user.department_id) {
+      params.push(user.department_id);
+      upcomingBookingsSql = `(SELECT count(*)::int FROM bookings b
+         LEFT JOIN facilities f ON f.id = b.facility_id
+         LEFT JOIN modules m ON m.id = b.module_id
+         WHERE b.status IN ('pending','confirmed') AND b.start_at > now()
+           AND COALESCE(f.department_id, m.department_id) = $${params.length})`;
+    } else {
+      upcomingBookingsSql = `(SELECT count(*)::int FROM bookings WHERE user_id = $1 AND status IN ('pending','confirmed') AND start_at > now())`;
+    }
     const result = await query(
       `SELECT
-         (SELECT count(*)::int FROM bookings WHERE user_id = $1 AND status IN ('pending','confirmed') AND start_at > now()) AS upcoming_bookings,
+         ${upcomingBookingsSql} AS upcoming_bookings,
          (SELECT count(*)::int FROM notifications WHERE user_id = $1 AND is_read = false) AS unread_notifications,
          (SELECT count(*)::int FROM no_shows WHERE user_id = $1 AND marked_at > now() - interval '30 days') AS recent_no_shows,
          (SELECT count(*)::int FROM enrolments e JOIN semesters s ON s.id = e.semester_id WHERE e.user_id = $1 AND s.is_current = true) AS modules,
          (SELECT count(*)::int FROM auth_sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()) AS active_sessions`,
-      [req.user.id]
+      params
     );
     res.json(result.rows[0]);
   })

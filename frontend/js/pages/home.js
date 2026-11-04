@@ -26,8 +26,10 @@ function greetingForHour() {
 }
 
 function renderStats(overview) {
+  const user = getUser();
+  const isAdmin = user && (user.role === 'super_admin' || user.role === 'department_admin');
   const items = [
-    [overview.upcoming_bookings, 'Upcoming bookings'],
+    [overview.upcoming_bookings, isAdmin ? 'Upcoming bookings (managed)' : 'Upcoming bookings'],
     [overview.unread_notifications, 'Unread notifications'],
     [overview.modules, 'Enrolled modules'],
     [overview.recent_no_shows, 'No-shows in 30 days']

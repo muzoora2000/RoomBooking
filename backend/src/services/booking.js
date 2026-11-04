@@ -223,12 +223,14 @@ function resolveLecturer(user, module, input) {
 
 function categoryAllowedForGeneralBooking(user, facility) {
   if (!facility) return;
-  if (isAdmin(user) || user.role === 'lecturer') return;
+  // Admins, lecturers, class reps and deputy reps can book any room category
+  if (isAdmin(user) || ['lecturer', 'class_rep', 'deputy_rep'].includes(user.role)) return;
+  // Students and other roles are restricted to discussion rooms and library spaces
   if (!GENERAL_ROOM_CATEGORIES.has(facility.category)) {
     throw new AppError(
       403,
       'ROOM_CATEGORY_FORBIDDEN',
-      'Students and class representatives can book discussion rooms and library spaces. Lecture rooms and labs must be booked as a class session by a lecturer, class representative, or administrator.'
+      'Students can book discussion rooms and library spaces. Lecture rooms and labs must be booked as a class session by a lecturer, class representative, or administrator.'
     );
   }
 }

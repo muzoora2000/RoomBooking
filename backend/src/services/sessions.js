@@ -67,9 +67,8 @@ export async function getAuthorisedModules(user, { semesterId = null, client = n
   }
   const repResult = await db.query(
     `SELECT class_id, is_deputy FROM class_reps
-     WHERE user_id = $1 AND is_active = true
-       AND (semester_id = $2 OR $2::uuid IS NULL)`,
-    [user.id, semester.id]
+     WHERE user_id = $1 AND is_active = true`,
+    [user.id]
   );
   if (!repResult.rowCount) return { semester, modules: [] };
   const classIds = [...new Set(repResult.rows.map((row) => row.class_id))];
@@ -82,13 +81,9 @@ export async function getAuthorisedModules(user, { semesterId = null, client = n
      JOIN classes c ON c.id = cm.class_id
      JOIN departments d ON d.id = m.department_id
      LEFT JOIN users u ON u.id = m.lecturer_id
-     LEFT JOIN delegations del ON del.module_id = m.id
-       AND del.from_user_id = m.lecturer_id AND del.to_user_id = $1
-       AND del.revoked_at IS NULL AND now() BETWEEN del.starts_at AND del.ends_at
-     WHERE cm.class_id = ANY($2::uuid[]) AND cm.semester_id = $3
-       AND (m.lecturer_id = $1 OR del.id IS NOT NULL OR m.lecturer_id IS NOT NULL)
+     WHERE cm.class_id = ANY($1::uuid[])
      ORDER BY m.code`,
-    [user.id, classIds, semester.id]
+    [classIds]
   );
   const delegated = await db.query(
     `SELECT DISTINCT m.*, d.code AS department_code, d.name AS department_name,
@@ -135,23 +130,34 @@ export async function assertCanScheduleModule(user, moduleId, { classId = null, 
   if (user.role === 'class_rep' || user.role === 'deputy_rep') {
     const semester = await getCurrentSemester(db);
     if (!semester) throw new AppError(409, 'NO_SEMESTER', 'No current semester is configured.');
+    // Check active rep status — allow any active semester assignment, not just the current one
     const rep = await db.query(
       `SELECT class_id FROM class_reps
-       WHERE user_id = $1 AND is_active = true AND semester_id = $2
-         AND ($3::uuid IS NULL OR class_id = $3)`,
-      [user.id, semester.id, classId || user.class_id]
+       WHERE user_id = $1 AND is_active = true
+         AND ($2::uuid IS NULL OR class_id = $2)`,
+      [user.id, classId || user.class_id]
     );
     if (!rep.rowCount) {
-      throw new AppError(403, 'NOT_CLASS_REP', 'You are not an active class representative for this class.');
+      throw new AppError(403, 'NOT_CLASS_REP', 'You are not an active class representative for any class.');
     }
     const classIds = rep.rows.map((row) => row.class_id);
+    // Check if module is registered for the class (in current or any semester)
     const link = await db.query(
       `SELECT 1 FROM class_modules
-       WHERE module_id = $1 AND semester_id = $2 AND class_id = ANY($3::uuid[]) LIMIT 1`,
-      [moduleId, semester.id, classIds]
+       WHERE module_id = $1 AND class_id = ANY($2::uuid[]) LIMIT 1`,
+      [moduleId, classIds]
     );
     if (!link.rowCount) {
-      throw new AppError(403, 'MODULE_NOT_IN_CLASS', 'That module is not registered for your class this semester.');
+      // Also allow if the module belongs to the same department as the class
+      const deptMatch = await db.query(
+        `SELECT 1 FROM classes c
+         JOIN modules m ON m.department_id = c.department_id
+         WHERE c.id = ANY($1::uuid[]) AND m.id = $2 LIMIT 1`,
+        [classIds, moduleId]
+      );
+      if (!deptMatch.rowCount) {
+        throw new AppError(403, 'MODULE_NOT_IN_CLASS', 'That module is not registered for your class.');
+      }
     }
     return { module, via: 'class_rep', classId: classId || classIds[0], semester };
   }

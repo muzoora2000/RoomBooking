@@ -20,12 +20,21 @@ const state = {
   me: null,
   tab: 'overview',
   departments: [],
+  programmes: [],
   classes: [],
+  modules: [],
+  semesters: [],
+  lecturers: [],
   facilities: [],
   bookingStatus: 'pending',
   facilityQuery: '',
   userQuery: '',
   userRole: '',
+  timetableSemester: '',
+  timetableFrom: '',
+  timetableTo: '',
+  reportFrom: '',
+  reportTo: '',
   issueStatus: 'open',
   studyStatus: 'pending',
   dataStatus: 'pending',
@@ -72,11 +81,47 @@ function departmentOptions(selected = '') {
   if (state.me?.role !== 'super_admin' && state.me?.department_id) {
     return option(state.me.department_id, state.departments.find((item) => item.id === state.me.department_id)?.name || 'My department', true);
   }
-  return '<option value="">Choose department</option>' + state.departments.map((item) => option(item.id, `${item.code} · ${item.name}`, item.id === selected)).join('');
+  return '<option value="">Choose department</option>' + state.departments.map((item) => option(item.id, `${item.code}  -  ${item.name}`, item.id === selected)).join('');
 }
 
 function classOptions(selected = '') {
-  return '<option value="">No class</option>' + state.classes.map((item) => option(item.id, `${item.code} · ${item.name}`, item.id === selected)).join('');
+  return '<option value="">No class</option>' + state.classes.map((item) => option(item.id, `${item.code}  -  ${item.name}`, item.id === selected)).join('');
+}
+
+function programmeOptions(selected = '') {
+  return '<option value="">No programme</option>' + state.programmes.map((item) => option(item.id, `${item.code}  -  ${item.name}`, item.id === selected)).join('');
+}
+
+function semesterOptions(selected = '') {
+  const current = state.semesters.find((item) => item.is_current)?.id;
+  const value = selected || current || '';
+  return state.semesters.map((item) => option(item.id, `${item.name}${item.is_current ? ' (current)' : ''}`, item.id === value)).join('');
+}
+
+function moduleOptions(selected = '') {
+  return '<option value="">Choose module</option>' + state.modules.map((item) => option(item.id, `${item.code}  -  ${item.name}`, item.id === selected)).join('');
+}
+
+function lecturerOptions(selected = '') {
+  return '<option value="">No lecturer</option>' + state.lecturers.map((item) => option(item.id, `${item.name} (${item.id_number})`, item.id === selected)).join('');
+}
+
+function facilityOptions(selected = '') {
+  return '<option value="">No room / online</option>' + state.facilities.map((item) => option(item.id, `${item.name}  -  ${item.building} ${item.room_number}`, item.id === selected)).join('');
+}
+
+function dateInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function todayMinus(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
 }
 
 function copyText(text) {
@@ -100,7 +145,7 @@ function openHtml(html) {
 
 function bookingTitle(booking) {
   return booking.module?.code
-    ? `${booking.module.code} · ${booking.module.name}`
+    ? `${booking.module.code}  -  ${booking.module.name}`
     : booking.purpose || 'Room booking';
 }
 
@@ -137,12 +182,19 @@ function askReason({ title, label = 'Reason', placeholder = '', confirmText = 'C
 }
 
 async function loadDirectory() {
-  const [departments, classes] = await Promise.all([
-    api.get('/api/org/departments'),
-    api.get('/api/org/classes')
+  const [departments, programmes, classes, semesters] = await Promise.all([
+    api.get('/api/admin/departments'),
+    api.get('/api/admin/programmes'),
+    api.get('/api/admin/classes'),
+    api.get('/api/admin/semesters')
   ]);
   state.departments = departments.departments || [];
+  state.programmes = programmes.programmes || [];
   state.classes = classes.classes || [];
+  state.semesters = semesters.semesters || [];
+  if (!state.timetableSemester) {
+    state.timetableSemester = state.semesters.find((item) => item.is_current)?.id || state.semesters[0]?.id || '';
+  }
 }
 
 async function loadFacilityDirectory() {
@@ -201,10 +253,10 @@ async function loadOverview() {
         <h2>System health</h2>
         ${health ? `
           <div class="detail-grid compact">
-            <div><span>Database</span><div>${health.database?.ok ? 'Connected' : 'Unavailable'} · ${Number(health.database?.latency_ms || 0)}ms</div></div>
+            <div><span>Database</span><div>${health.database?.ok ? 'Connected' : 'Unavailable'}  -  ${Number(health.database?.latency_ms || 0)}ms</div></div>
             <div><span>Environment</span><div>${escapeHtml(health.environment || '')}</div></div>
             <div><span>Active sessions</span><div>${Number(health.active_sessions || 0)}</div></div>
-            <div><span>Queue</span><div>${escapeHtml(Object.entries(health.notification_queue || {}).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'empty')}</div></div>
+            <div><span>Queue</span><div>${escapeHtml(Object.entries(health.notification_queue || {}).map(([key, value]) => `${key}: ${value}`).join('  -  ') || 'empty')}</div></div>
           </div>
           <p class="small muted" style="margin-top:.7rem">${escapeHtml(String(health.database?.version || '').split(' ').slice(0, 2).join(' '))}</p>`
           : '<div class="notice warning">Health status is unavailable.</div>'}
@@ -253,7 +305,7 @@ async function renderAdminBookings() {
           <div class="chips" style="margin-bottom:.3rem">${badge(booking.status)}<span class="badge">${escapeHtml(booking.session_mode)}</span></div>
           <h3>${escapeHtml(bookingTitle(booking))}</h3>
           <p>${escapeHtml(formatRange(booking.start_at, booking.end_at))}</p>
-          <p>${escapeHtml(booking.facility?.name || 'Online')}${booking.booked_by ? ` · ${escapeHtml(booking.booked_by.name)} (${escapeHtml(booking.booked_by.id_number)})` : ''}</p>
+          <p>${escapeHtml(booking.facility?.name || 'Online')}${booking.booked_by ? `  -  ${escapeHtml(booking.booked_by.name)} (${escapeHtml(booking.booked_by.id_number)})` : ''}</p>
         </div>
         <div class="card-actions">
           <button class="btn ghost small" type="button" data-booking-action="details">Details</button>
@@ -361,7 +413,7 @@ function renderAdminFacilities() {
   container.innerHTML = `<div class="room-admin-grid">${rooms.map((room) => `
     <article class="card room-admin-card">
       <div class="row space-between" style="align-items:flex-start">
-        <div><div class="eyebrow">${escapeHtml(categoryLabels[room.category] || room.category)}</div><h3>${escapeHtml(room.name)}</h3><p class="muted small">${escapeHtml(room.building)} ${escapeHtml(room.room_number)} · ${escapeHtml(room.department_code || '')}</p></div>
+        <div><div class="eyebrow">${escapeHtml(categoryLabels[room.category] || room.category)}</div><h3>${escapeHtml(room.name)}</h3><p class="muted small">${escapeHtml(room.building)} ${escapeHtml(room.room_number)}  -  ${escapeHtml(room.department_code || '')}</p></div>
         ${badge(room.status === 'active' ? 'confirmed' : room.status === 'maintenance' ? 'pending' : 'cancelled')}
       </div>
       <div class="room-meta"><span>${Number(room.capacity)} seats</span><span>${room.requires_approval ? 'Approval' : 'Instant'}</span><span>${Number(room.session_count || 0)} upcoming</span></div>
@@ -457,7 +509,7 @@ function facilityForm(room = null) {
       if (!editing && result.room_qr_url) {
         openModal({
           title: 'Room created',
-          content: `<p>The room is ready. Print its QR code now — the code is required for walk-up use and door check-in.</p><p class="small" style="word-break:break-all"><code>${escapeHtml(result.room_qr_url)}</code></p>`,
+          content: `<p>The room is ready. Print its QR code now  -  the code is required for walk-up use and door check-in.</p><p class="small" style="word-break:break-all"><code>${escapeHtml(result.room_qr_url)}</code></p>`,
           footer: `<button type="button" class="btn" data-copy-qr>Copy link</button><button type="button" class="btn secondary" data-close>Close</button>`
         }).root.querySelector('[data-copy-qr]').addEventListener('click', () => copyText(result.room_qr_url));
       }
@@ -484,10 +536,10 @@ async function manageFacility(id) {
     modal.body.innerHTML = `
       <div class="detail-grid">
         <div><span>Room</span><div>${escapeHtml(room.name)}</div></div>
-        <div><span>Location</span><div>${escapeHtml(room.building)} ${escapeHtml(room.room_number)} · ${escapeHtml(room.floor || '')}</div></div>
+        <div><span>Location</span><div>${escapeHtml(room.building)} ${escapeHtml(room.room_number)}  -  ${escapeHtml(room.floor || '')}</div></div>
         <div><span>Capacity</span><div>${Number(room.capacity)} seats</div></div>
         <div><span>Department</span><div>${escapeHtml(state.departments.find((item) => item.id === room.department_id)?.name || '')}</div></div>
-        <div><span>Check-in</span><div>${escapeHtml(room.checkin_mode)} · ${Number(room.checkin_radius_m)}m</div></div>
+        <div><span>Check-in</span><div>${escapeHtml(room.checkin_mode)}  -  ${Number(room.checkin_radius_m)}m</div></div>
         <div><span>QR version</span><div>${Number(room.qr_version)}</div></div>
       </div>
       <div class="card-actions" style="margin-top:.8rem">
@@ -505,7 +557,7 @@ async function manageFacility(id) {
         <div class="list-item"><div class="main"><h3>${escapeHtml(block.reason)}</h3><p>${escapeHtml(formatRange(block.start_at, block.end_at))}</p></div><button class="btn ghost small danger-text" type="button" data-remove-block="${escapeHtml(block.id)}">Remove</button></div>`).join('')}</div>` : '<p class="muted small">No upcoming blocks.</p>'}
       <h3 style="margin-top:1rem">Door displays</h3>
       ${displays.length ? `<div class="list">${displays.map((display) => `
-        <div class="list-item"><div class="main"><h3>${escapeHtml(display.label)}</h3><p>${display.last_seen_at ? `Last seen ${escapeHtml(formatDate(display.last_seen_at, { dateStyle: 'medium', timeStyle: 'short' }))}` : 'Never connected'}${display.revoked_at ? ' · revoked' : ''}</p></div>${display.revoked_at ? '' : `<button class="btn ghost small danger-text" type="button" data-revoke-display="${escapeHtml(display.id)}">Revoke</button>`}</div>`).join('')}</div>` : '<p class="muted small">No displays yet.</p>'}`;
+        <div class="list-item"><div class="main"><h3>${escapeHtml(display.label)}</h3><p>${display.last_seen_at ? `Last seen ${escapeHtml(formatDate(display.last_seen_at, { dateStyle: 'medium', timeStyle: 'short' }))}` : 'Never connected'}${display.revoked_at ? '  -  revoked' : ''}</p></div>${display.revoked_at ? '' : `<button class="btn ghost small danger-text" type="button" data-revoke-display="${escapeHtml(display.id)}">Revoke</button>`}</div>`).join('')}</div>` : '<p class="muted small">No displays yet.</p>'}`;
     modal.body.querySelectorAll('[data-facility-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const action = button.dataset.facilityAction;
@@ -691,7 +743,7 @@ async function renderAdminUsers() {
         <div class="main">
           <div class="chips" style="margin-bottom:.2rem">${user.is_active ? '' : '<span class="badge red">Inactive</span>'}${user.flagged_for_review ? '<span class="badge amber">Flagged</span>' : ''}</div>
           <h3>${escapeHtml(user.name)}</h3>
-          <p>${escapeHtml(user.id_number)} · ${escapeHtml(roleLabel(user.role))}${user.class_code ? ` · ${escapeHtml(user.class_code)}` : ''}${user.department_code ? ` · ${escapeHtml(user.department_code)}` : ''}</p>
+          <p>${escapeHtml(user.id_number)}  -  ${escapeHtml(roleLabel(user.role))}${user.class_code ? `  -  ${escapeHtml(user.class_code)}` : ''}${user.department_code ? `  -  ${escapeHtml(user.department_code)}` : ''}</p>
           <p>${escapeHtml(user.email)}</p>
         </div>
         <button class="btn ghost small" type="button" data-manage-user>Manage</button>
@@ -820,7 +872,7 @@ async function manageUser(user) {
         <div><span>Department</span><div>${escapeHtml(detail.department_name || '-')}</div></div>
         <div><span>Class</span><div>${escapeHtml(detail.class_name || '-')}</div></div>
         <div><span>${modeFieldLabel(detail.role)}</span><div>${escapeHtml(detail.study_mode)}</div></div>
-        <div><span>Bookings</span><div>${Number(counts.total || 0)} total · ${Number(counts.upcoming || 0)} upcoming</div></div>
+        <div><span>Bookings</span><div>${Number(counts.total || 0)} total  -  ${Number(counts.upcoming || 0)} upcoming</div></div>
       </div>
       ${(result.no_shows || []).length ? `<h3 style="margin-top:.8rem">Recent no-shows</h3><div class="list">${result.no_shows.slice(0, 5).map((item) => `<div class="list-item"><div class="main"><h3>${escapeHtml(formatDate(item.marked_at, { dateStyle: 'medium' }))}</h3><p>${escapeHtml(item.reason || '')}</p></div></div>`).join('')}</div>` : ''}
       <div class="card-actions" style="margin-top:.9rem">
@@ -904,6 +956,522 @@ function editUserForm(user) {
   });
 }
 
+function academicSection(title, subtitle, body, actions = '') {
+  return `<section class="card" style="margin-bottom:.9rem"><div class="admin-section-head"><div><h2>${escapeHtml(title)}</h2><p class="muted small">${escapeHtml(subtitle)}</p></div><div class="card-actions">${actions}</div></div>${body}</section>`;
+}
+
+function academicTable(headers, rows, emptyMessage) {
+  if (!rows.length) return `<p class="muted small">${escapeHtml(emptyMessage)}</p>`;
+  return `<div class="table-wrap"><table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+
+function rowActions(kind, item, extra = '') {
+  return `<div class="card-actions" style="margin:0"><button class="btn ghost small" type="button" data-academic-action="edit" data-academic-kind="${kind}" data-academic-id="${escapeHtml(item.id)}">Edit</button>${extra}<button class="btn ghost small danger-text" type="button" data-academic-action="delete" data-academic-kind="${kind}" data-academic-id="${escapeHtml(item.id)}">Delete</button></div>`;
+}
+
+async function loadAcademics() {
+  skeleton();
+  try {
+    const [departments, programmes, classes, modules, lecturers] = await Promise.all([
+      api.get('/api/admin/departments'),
+      api.get('/api/admin/programmes'),
+      api.get('/api/admin/classes'),
+      api.get('/api/admin/modules'),
+      state.lecturers.length ? Promise.resolve(null) : api.get('/api/admin/users?role=lecturer&limit=500')
+    ]);
+    state.departments = departments.departments || [];
+    state.programmes = programmes.programmes || [];
+    state.classes = classes.classes || [];
+    state.modules = modules.modules || [];
+    if (lecturers) state.lecturers = lecturers.users || [];
+    const canManageDepartments = state.me.role === 'super_admin';
+    const departmentRows = state.departments.map((item) => `<tr>
+      <td><strong>${escapeHtml(item.code)}</strong></td><td>${escapeHtml(item.name)}</td>
+      <td>${Number(item.programme_count || 0)}</td><td>${Number(item.class_count || 0)}</td>
+      <td>${Number(item.module_count || 0)}</td><td>${Number(item.facility_count || 0)}</td>
+      <td>${canManageDepartments ? rowActions('departments', item) : '<span class="muted small">Read only</span>'}</td>
+    </tr>`);
+    const programmeRows = state.programmes.map((item) => `<tr>
+      <td><strong>${escapeHtml(item.code)}</strong></td><td>${escapeHtml(item.name)}</td>
+      <td>${escapeHtml(item.department_code)} - ${escapeHtml(item.department_name)}</td>
+      <td>${Number(item.duration_years)} years</td><td>${Number(item.class_count || 0)}</td><td>${Number(item.module_count || 0)}</td>
+      <td>${rowActions('programmes', item)}</td>
+    </tr>`);
+    const classRows = state.classes.map((item) => `<tr>
+      <td><strong>${escapeHtml(item.code)}</strong></td><td>${escapeHtml(item.name)}</td>
+      <td>${escapeHtml(item.programme_code)}</td><td>${escapeHtml(item.department_code)}</td>
+      <td>${Number(item.year_of_study)}</td><td>${escapeHtml(item.stream)}</td>
+      <td>${Number(item.student_count || 0)}</td><td>${Number(item.module_count || 0)}</td>
+      <td>${rowActions('classes', item, `<button class="btn ghost small" type="button" data-class-modules="${escapeHtml(item.id)}">Modules</button>`)}</td>
+    </tr>`);
+    const moduleRows = state.modules.map((item) => `<tr>
+      <td><strong>${escapeHtml(item.code)}</strong></td><td>${escapeHtml(item.name)}</td>
+      <td>${escapeHtml(item.department_code)}</td><td>${escapeHtml(item.programme_code || '-')}</td>
+      <td>${escapeHtml(item.lecturer_name || '-')}</td><td>${Number(item.credit_units)}</td>
+      <td>${Number(item.class_count || 0)}</td><td>${Number(item.timetable_count || 0)}</td>
+      <td>${rowActions('modules', item)}</td>
+    </tr>`);
+    const semesterRows = state.semesters.map((item) => `<tr>
+      <td><strong>${escapeHtml(item.name)}</strong>${item.is_current ? ' <span class="badge confirmed">Current</span>' : ''}</td>
+      <td>${escapeHtml(formatDate(item.start_date))}</td><td>${escapeHtml(formatDate(item.end_date))}</td>
+      <td>${state.me.role === 'super_admin' ? rowActions('semesters', item) : '<span class="muted small">Read only</span>'}</td>
+    </tr>`);
+    content.innerHTML = `
+      ${pageHeader(
+        'Academic structure',
+        'Departments, programmes, classes, modules, and semesters.',
+        `${canManageDepartments ? '<button class="btn" type="button" id="new-department">Add department</button>' : ''}
+         <button class="btn secondary" type="button" id="new-programme">Add programme</button>
+         <button class="btn secondary" type="button" id="new-class">Add class</button>
+         <button class="btn secondary" type="button" id="new-module">Add module</button>
+         ${canManageDepartments ? '<button class="btn secondary" type="button" id="new-semester">Add semester</button>' : ''}`
+      )}
+      ${academicSection('Departments', `${state.departments.length} in scope`, academicTable(['Code', 'Name', 'Programmes', 'Classes', 'Modules', 'Rooms', ''], departmentRows, 'No departments in your scope.'))}
+      ${academicSection('Programmes', `${state.programmes.length} in scope`, academicTable(['Code', 'Name', 'Department', 'Duration', 'Classes', 'Modules', ''], programmeRows, 'No programmes yet.'))}
+      ${academicSection('Classes', `${state.classes.length} in scope`, academicTable(['Code', 'Name', 'Programme', 'Department', 'Year', 'Stream', 'Students', 'Modules', ''], classRows, 'No classes yet.'))}
+      ${academicSection('Modules', `${state.modules.length} in scope`, academicTable(['Code', 'Name', 'Department', 'Programme', 'Lecturer', 'Credits', 'Classes', 'Slots', ''], moduleRows, 'No modules yet.'))}
+      ${academicSection('Semesters', `${state.semesters.length} configured`, academicTable(['Name', 'Starts', 'Ends', ''], semesterRows, 'No semesters yet.'))}`;
+    document.getElementById('new-department')?.addEventListener('click', () => academicForm('departments'));
+    document.getElementById('new-programme')?.addEventListener('click', () => academicForm('programmes'));
+    document.getElementById('new-class')?.addEventListener('click', () => academicForm('classes'));
+    document.getElementById('new-module')?.addEventListener('click', () => academicForm('modules'));
+    document.getElementById('new-semester')?.addEventListener('click', () => academicForm('semesters'));
+    content.querySelectorAll('[data-academic-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const kind = button.dataset.academicKind;
+        const item = [...state.departments, ...state.programmes, ...state.classes, ...state.modules, ...state.semesters]
+          .find((entry) => entry.id === button.dataset.academicId);
+        if (!item) return;
+        if (button.dataset.academicAction === 'edit') academicForm(kind, item);
+        else deleteAcademic(kind, item);
+      });
+    });
+    content.querySelectorAll('[data-class-modules]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const item = state.classes.find((entry) => entry.id === button.dataset.classModules);
+        if (item) openClassModules(item);
+      });
+    });
+  } catch (error) {
+    content.innerHTML = `<div class="notice danger">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function academicForm(kind, item = null) {
+  const editing = Boolean(item);
+  const config = {
+    departments: { title: 'department', endpoint: '/api/admin/departments' },
+    programmes: { title: 'programme', endpoint: '/api/admin/programmes' },
+    classes: { title: 'class', endpoint: '/api/admin/classes' },
+    modules: { title: 'module', endpoint: '/api/admin/modules' },
+    semesters: { title: 'semester', endpoint: '/api/admin/semesters' }
+  }[kind];
+  if (!config) return;
+  let fields = '';
+  if (kind === 'departments') {
+    fields = `
+      <div class="field"><label>Code</label><input name="code" required maxlength="50" value="${escapeHtml(item?.code || '')}"></div>
+      <div class="field"><label>Name</label><input name="name" required maxlength="200" value="${escapeHtml(item?.name || '')}"></div>`;
+  } else if (kind === 'programmes') {
+    fields = `
+      <div class="field-row">
+        <div class="field"><label>Code</label><input name="code" required maxlength="50" value="${escapeHtml(item?.code || '')}"></div>
+        <div class="field"><label>Duration (years)</label><input name="duration_years" type="number" min="1" max="8" required value="${escapeHtml(item?.duration_years ?? 3)}"></div>
+      </div>
+      <div class="field"><label>Name</label><input name="name" required maxlength="200" value="${escapeHtml(item?.name || '')}"></div>
+      <div class="field"><label>Department</label><select name="department_id" required>${departmentOptions(item?.department_id || state.me.department_id)}</select></div>`;
+  } else if (kind === 'classes') {
+    fields = `
+      <div class="field"><label>Programme</label><select name="programme_id" required>${programmeOptions(item?.programme_id || '')}</select></div>
+      <div class="field-row">
+        <div class="field"><label>Code</label><input name="code" maxlength="50" value="${escapeHtml(item?.code || '')}" placeholder="Leave blank to generate"></div>
+        <div class="field"><label>Year of study</label><input name="year_of_study" type="number" min="1" max="8" required value="${escapeHtml(item?.year_of_study ?? 1)}"></div>
+      </div>
+      <div class="field"><label>Name</label><input name="name" required maxlength="200" value="${escapeHtml(item?.name || '')}"></div>
+      <div class="field-row">
+        <div class="field"><label>Intake</label><input name="intake" required maxlength="50" value="${escapeHtml(item?.intake || 'Main')}"></div>
+        <div class="field"><label>Stream</label><input name="stream" required maxlength="50" value="${escapeHtml(item?.stream || 'Day')}"></div>
+      </div>
+      <div class="field"><label>Default study mode</label><select name="default_study_mode">${['physical', 'online', 'hybrid'].map((mode) => option(mode, mode, (item?.default_study_mode || 'physical') === mode)).join('')}</select></div>`;
+  } else if (kind === 'modules') {
+    fields = `
+      <div class="field-row">
+        <div class="field"><label>Code</label><input name="code" required maxlength="50" value="${escapeHtml(item?.code || '')}"></div>
+        <div class="field"><label>Credit units</label><input name="credit_units" type="number" min="1" max="10" required value="${escapeHtml(item?.credit_units ?? 3)}"></div>
+      </div>
+      <div class="field"><label>Name</label><input name="name" required maxlength="200" value="${escapeHtml(item?.name || '')}"></div>
+      <div class="field"><label>Department</label><select name="department_id" required>${departmentOptions(item?.department_id || state.me.department_id)}</select></div>
+      <div class="field"><label>Programme (optional)</label><select name="programme_id">${programmeOptions(item?.programme_id || '')}</select></div>
+      <div class="field"><label>Lecturer (optional)</label><select name="lecturer_id">${lecturerOptions(item?.lecturer_id || '')}</select></div>`;
+  } else {
+    fields = `
+      <div class="field"><label>Name</label><input name="name" required maxlength="100" value="${escapeHtml(item?.name || '')}" placeholder="Semester I 2026/2027"></div>
+      <div class="field-row">
+        <div class="field"><label>Starts</label><input name="start_date" type="date" required value="${escapeHtml(item?.start_date?.slice(0, 10) || '')}"></div>
+        <div class="field"><label>Ends</label><input name="end_date" type="date" required value="${escapeHtml(item?.end_date?.slice(0, 10) || '')}"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="is_current" ${item?.is_current ? 'checked' : ''}> <span>Set as the current semester</span></label>`;
+  }
+  const modal = openModal({
+    title: `${editing ? 'Edit' : 'Add'} ${config.title}`,
+    content: `<form id="academic-form">${fields}<p class="error-text hidden" data-error></p><button class="btn wide" type="submit">${editing ? 'Save changes' : 'Create'}</button></form>`,
+    footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
+  });
+  const form = modal.body.querySelector('#academic-form');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    const data = new FormData(form);
+    const payload = {};
+    for (const [key, value] of data.entries()) payload[key] = value;
+    if (kind === 'programmes' || kind === 'modules' || kind === 'classes') {
+      if (payload.duration_years) payload.duration_years = Number(payload.duration_years);
+      if (payload.credit_units) payload.credit_units = Number(payload.credit_units);
+      if (payload.year_of_study) payload.year_of_study = Number(payload.year_of_study);
+      if (!payload.programme_id) payload.programme_id = null;
+      if (!payload.lecturer_id) payload.lecturer_id = null;
+      if (!payload.code) delete payload.code;
+    }
+    if (kind === 'semesters') payload.is_current = data.get('is_current') === 'on';
+    setButtonLoading(button, true, 'Saving...');
+    try {
+      await api[editing ? 'patch' : 'post'](`${config.endpoint}${editing ? `/${encodeURIComponent(item.id)}` : ''}`, payload);
+      modal.close();
+      toast(`${config.title} ${editing ? 'updated' : 'created'}.`, 'success');
+      await loadAcademics();
+    } catch (error) {
+      setButtonLoading(button, false);
+      const box = form.querySelector('[data-error]');
+      box.textContent = error.message;
+      box.classList.remove('hidden');
+    }
+  });
+}
+
+async function deleteAcademic(kind, item) {
+  const config = {
+    departments: { title: 'department', endpoint: '/api/admin/departments' },
+    programmes: { title: 'programme', endpoint: '/api/admin/programmes' },
+    classes: { title: 'class', endpoint: '/api/admin/classes' },
+    modules: { title: 'module', endpoint: '/api/admin/modules' },
+    semesters: { title: 'semester', endpoint: '/api/admin/semesters' }
+  }[kind];
+  if (!config) return;
+  const label = item.code || item.name;
+  if (!await confirmDialog(`Delete ${config.title} ${label}? This cannot be undone.`, { title: `Delete ${config.title}`, confirmText: 'Delete', danger: true })) return;
+  try {
+    await api.delete(`${config.endpoint}/${encodeURIComponent(item.id)}`);
+    toast(`${config.title} deleted.`, 'success');
+    await loadAcademics();
+  } catch (error) {
+    notifyError(error);
+  }
+}
+
+async function openClassModules(classItem) {
+  const modal = openModal({
+    title: `${classItem.code} modules`,
+    content: '<div class="skeleton"></div><div class="skeleton"></div>',
+    footer: '<button type="button" class="btn secondary" data-close>Close</button>'
+  });
+  const render = async () => {
+    try {
+      const result = await api.get(`/api/admin/classes/${encodeURIComponent(classItem.id)}/modules${queryString({ semester_id: state.timetableSemester || undefined })}`);
+      const linked = result.modules || [];
+      modal.body.innerHTML = `
+        <div class="filters">
+          <select id="class-module-select">${moduleOptions()}</select>
+          <button class="btn small" type="button" id="link-class-module">Add module</button>
+        </div>
+        ${linked.length ? `<div class="list">${linked.map((module) => `<div class="list-item"><div class="main"><h3>${escapeHtml(module.code)} - ${escapeHtml(module.name)}</h3><p class="small muted">${Number(module.credit_units)} credit units</p></div><button class="btn ghost small danger-text" type="button" data-unlink-module="${escapeHtml(module.id)}">Remove</button></div>`).join('')}</div>` : '<p class="muted small">No modules linked for this semester.</p>'}`;
+      modal.body.querySelector('#link-class-module')?.addEventListener('click', async () => {
+        const moduleId = modal.body.querySelector('#class-module-select').value;
+        if (!moduleId) return;
+        try {
+          await api.post(`/api/admin/classes/${encodeURIComponent(classItem.id)}/modules`, { module_id: moduleId, semester_id: state.timetableSemester || undefined });
+          toast('Module linked.', 'success');
+          await render();
+        } catch (error) {
+          notifyError(error);
+        }
+      });
+      modal.body.querySelectorAll('[data-unlink-module]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          try {
+            await api.delete(`/api/admin/classes/${encodeURIComponent(classItem.id)}/modules/${encodeURIComponent(button.dataset.unlinkModule)}${queryString({ semester_id: state.timetableSemester || undefined })}`);
+            toast('Module unlinked.', 'success');
+            await render();
+          } catch (error) {
+            notifyError(error);
+          }
+        });
+      });
+    } catch (error) {
+      modal.body.innerHTML = `<div class="notice danger">${escapeHtml(error.message)}</div>`;
+    }
+  };
+  await render();
+}
+
+async function loadTimetableDirectory() {
+  const tasks = [];
+  if (!state.modules.length) tasks.push(api.get('/api/admin/modules').then((result) => { state.modules = result.modules || []; }));
+  if (!state.lecturers.length) tasks.push(api.get('/api/admin/users?role=lecturer&limit=500').then((result) => { state.lecturers = result.users || []; }));
+  if (!state.semesters.length) tasks.push(api.get('/api/admin/semesters').then((result) => { state.semesters = result.semesters || []; }));
+  if (!state.classes.length || !state.programmes.length) tasks.push(loadDirectory());
+  await loadFacilityDirectory();
+  await Promise.all(tasks);
+}
+
+async function loadTimetable() {
+  skeleton();
+  await loadTimetableDirectory();
+  if (!state.timetableSemester) {
+    state.timetableSemester = state.semesters.find((item) => item.is_current)?.id || state.semesters[0]?.id || '';
+  }
+  content.innerHTML = `
+    ${pageHeader('Timetable', 'Create, import, and remove official timetable slots.', '<button class="btn" type="button" id="new-slot">Add slot</button><button class="btn secondary" type="button" id="import-slots">Import CSV</button>')}
+    <div class="filters">
+      <select id="timetable-semester">${semesterOptions(state.timetableSemester)}</select>
+      <input type="date" id="timetable-from" value="${escapeHtml(state.timetableFrom)}">
+      <input type="date" id="timetable-to" value="${escapeHtml(state.timetableTo)}">
+      <button class="btn secondary" type="button" id="refresh-timetable">Refresh</button>
+    </div>
+    <div id="admin-timetable"><div class="skeleton"></div><div class="skeleton"></div></div>`;
+  document.getElementById('new-slot').addEventListener('click', openTimetableForm);
+  document.getElementById('import-slots').addEventListener('click', importTimetableForm);
+  document.getElementById('timetable-semester').addEventListener('change', (event) => {
+    state.timetableSemester = event.target.value;
+    renderTimetable();
+  });
+  document.getElementById('timetable-from').addEventListener('change', (event) => {
+    state.timetableFrom = event.target.value;
+    renderTimetable();
+  });
+  document.getElementById('timetable-to').addEventListener('change', (event) => {
+    state.timetableTo = event.target.value;
+    renderTimetable();
+  });
+  document.getElementById('refresh-timetable').addEventListener('click', renderTimetable);
+  await renderTimetable();
+}
+
+async function renderTimetable() {
+  const container = document.getElementById('admin-timetable');
+  if (!container) return;
+  container.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+  try {
+    const result = await api.get(`/api/admin/timetable${queryString({
+      semester_id: state.timetableSemester || undefined,
+      from: state.timetableFrom || undefined,
+      to: state.timetableTo || undefined,
+      limit: 2000
+    })}`);
+    const slots = result.slots || [];
+    if (!slots.length) {
+      container.innerHTML = emptyState('No timetable slots', 'Create a slot or change the semester filter.');
+      return;
+    }
+    container.innerHTML = `<p class="small muted">${slots.length} slot${slots.length === 1 ? '' : 's'}</p><div class="table-wrap"><table><thead><tr><th>When</th><th>Module</th><th>Class</th><th>Room</th><th>Lecturer</th><th>Mode</th><th></th></tr></thead><tbody>${slots.map((slot) => `
+      <tr>
+        <td>${escapeHtml(formatRange(slot.start_at, slot.end_at))}</td>
+        <td><strong>${escapeHtml(slot.module_code)}</strong><br><span class="muted small">${escapeHtml(slot.module_name)}</span></td>
+        <td>${escapeHtml(slot.class_code || '-')}</td>
+        <td>${escapeHtml(slot.facility_name ? `${slot.facility_name} (${slot.building} ${slot.room_number})` : 'Online')}</td>
+        <td>${escapeHtml(slot.lecturer_name || '-')}</td>
+        <td>${badge(slot.session_mode)}</td>
+        <td><button class="btn ghost small danger-text" type="button" data-delete-slot="${escapeHtml(slot.id)}">Delete</button></td>
+      </tr>`).join('')}</tbody></table></div>`;
+    container.querySelectorAll('[data-delete-slot]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        if (!await confirmDialog('Delete this timetable slot and cancel its linked booking?', { title: 'Delete timetable slot', confirmText: 'Delete', danger: true })) return;
+        try {
+          await api.delete(`/api/timetable/${encodeURIComponent(button.dataset.deleteSlot)}`);
+          toast('Timetable slot deleted.', 'success');
+          await renderTimetable();
+        } catch (error) {
+          notifyError(error);
+        }
+      });
+    });
+  } catch (error) {
+    container.innerHTML = `<div class="notice danger">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function openTimetableForm() {
+  if (!state.modules.length) {
+    toast('Add a module before creating a timetable slot.', 'error');
+    return;
+  }
+  const modal = openModal({
+    title: 'Add timetable slot',
+    content: `
+      <form id="slot-form">
+        <div class="field-row">
+          <div class="field"><label>Semester</label><select name="semester_id">${semesterOptions(state.timetableSemester)}</select></div>
+          <div class="field"><label>Session mode</label><select name="session_mode">${['physical', 'online', 'hybrid'].map((mode) => option(mode, mode)).join('')}</select></div>
+        </div>
+        <div class="field"><label>Module</label><select name="module_id" required>${moduleOptions()}</select></div>
+        <div class="field-row">
+          <div class="field"><label>Class</label><select name="class_id">${classOptions()}</select></div>
+          <div class="field"><label>Lecturer</label><select name="lecturer_id">${lecturerOptions()}</select></div>
+        </div>
+        <div class="field"><label>Room</label><select name="facility_id">${facilityOptions()}</select></div>
+        <div class="field-row">
+          <div class="field"><label>Starts</label><input name="start_at" type="datetime-local" required></div>
+          <div class="field"><label>Ends</label><input name="end_at" type="datetime-local" required></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Online platform</label><select name="online_platform">${['', 'zoom', 'google_meet', 'teams', 'other'].map((value) => option(value, value || 'None')).join('')}</select></div>
+          <div class="field"><label>Online link</label><input name="online_link" type="url" placeholder="https://..."></div>
+        </div>
+        <label class="check"><input type="checkbox" name="create_booking" checked> <span>Create the linked room booking</span></label>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn wide" type="submit">Create slot</button>
+      </form>`,
+    footer: '<button type="button" class="btn secondary" data-close>Cancel</button>'
+  });
+  const form = modal.body.querySelector('#slot-form');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    const data = new FormData(form);
+    const mode = data.get('session_mode');
+    if (mode !== 'online' && !data.get('facility_id')) {
+      const box = form.querySelector('[data-error]');
+      box.textContent = 'Choose a room for physical or hybrid sessions.';
+      box.classList.remove('hidden');
+      return;
+    }
+    const payload = {
+      semester_id: data.get('semester_id') || undefined,
+      module_id: data.get('module_id'),
+      class_id: data.get('class_id') || null,
+      lecturer_id: data.get('lecturer_id') || null,
+      facility_id: data.get('facility_id') || null,
+      start_at: new Date(data.get('start_at')).toISOString(),
+      end_at: new Date(data.get('end_at')).toISOString(),
+      session_mode: mode,
+      online_platform: data.get('online_platform') || null,
+      online_link: data.get('online_link') || null,
+      create_booking: data.get('create_booking') === 'on'
+    };
+    setButtonLoading(button, true, 'Creating...');
+    try {
+      await api.post('/api/timetable', payload);
+      modal.close();
+      toast('Timetable slot created.', 'success');
+      await renderTimetable();
+    } catch (error) {
+      setButtonLoading(button, false);
+      const box = form.querySelector('[data-error]');
+      box.textContent = error.message;
+      box.classList.remove('hidden');
+    }
+  });
+}
+
+function importTimetableForm() {
+  const modal = openModal({
+    title: 'Import timetable CSV',
+    content: `
+      <p class="muted small">Headers: module_code, class_code, lecturer_id_number, building, room_number, date, start_time, end_time, session_mode, online_platform, online_link. Maximum 500 rows.</p>
+      <form id="slot-import-form">
+        <div class="field"><label>Semester</label><select name="semester_id">${semesterOptions(state.timetableSemester)}</select></div>
+        <div class="field"><label>CSV content</label><textarea name="csv" rows="10" required placeholder="module_code,class_code,building,room_number,date,start_time,end_time,session_mode"></textarea></div>
+        <label class="check"><input type="checkbox" name="create_bookings" checked> <span>Create linked room bookings</span></label>
+        <p class="error-text hidden" data-error></p>
+        <button class="btn wide" type="submit">Import timetable</button>
+      </form>
+      <div id="slot-import-result" style="margin-top:.8rem"></div>`,
+    footer: '<button type="button" class="btn secondary" data-close>Close</button>'
+  });
+  const form = modal.body.querySelector('#slot-import-form');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button[type="submit"]');
+    const data = new FormData(form);
+    const resultBox = modal.body.querySelector('#slot-import-result');
+    setButtonLoading(button, true, 'Importing...');
+    try {
+      const result = await api.post('/api/timetable/import', {
+        semester_id: data.get('semester_id') || undefined,
+        csv: data.get('csv'),
+        create_bookings: data.get('create_bookings') === 'on'
+      });
+      resultBox.innerHTML = `<div class="notice ${result.failed ? 'warning' : 'success'}">${result.imported} imported, ${result.failed} failed of ${result.total}.</div>${(result.results || []).filter((item) => item.status === 'failed').map((item) => `<p class="small danger-text">Line ${item.line}: ${escapeHtml(item.error)}</p>`).join('')}`;
+      await renderTimetable();
+    } catch (error) {
+      setButtonLoading(button, false);
+      const box = form.querySelector('[data-error]');
+      box.textContent = error.message;
+      box.classList.remove('hidden');
+    }
+  });
+}
+
+async function loadReports() {
+  if (!state.reportFrom) state.reportFrom = todayMinus(29);
+  if (!state.reportTo) state.reportTo = new Date().toISOString().slice(0, 10);
+  content.innerHTML = `
+    ${pageHeader('Reports', 'Booking, attendance, and utilisation trends for your scope.', '<button class="btn secondary" type="button" id="download-bookings">Download CSV</button>')}
+    <div class="filters">
+      <input type="date" id="report-from" value="${escapeHtml(state.reportFrom)}">
+      <input type="date" id="report-to" value="${escapeHtml(state.reportTo)}">
+      <button class="btn secondary" type="button" id="refresh-reports">Refresh</button>
+    </div>
+    <div id="admin-reports"><div class="skeleton"></div><div class="skeleton"></div></div>`;
+  document.getElementById('report-from').addEventListener('change', (event) => {
+    state.reportFrom = event.target.value;
+    renderReports();
+  });
+  document.getElementById('report-to').addEventListener('change', (event) => {
+    state.reportTo = event.target.value;
+    renderReports();
+  });
+  document.getElementById('refresh-reports').addEventListener('click', renderReports);
+  document.getElementById('download-bookings').addEventListener('click', () => {
+    api.download(`/api/reports/bookings.csv${queryString({ from: state.reportFrom, to: state.reportTo })}`, 'bookings.csv').catch(notifyError);
+  });
+  await renderReports();
+}
+
+async function renderReports() {
+  const container = document.getElementById('admin-reports');
+  if (!container) return;
+  container.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+  try {
+    const [summary, days, facilities, departments] = await Promise.all([
+      api.get(`/api/reports/summary${queryString({ from: state.reportFrom, to: state.reportTo })}`),
+      api.get(`/api/reports/by-day${queryString({ from: state.reportFrom, to: state.reportTo })}`),
+      api.get(`/api/reports/by-facility${queryString({ from: state.reportFrom, to: state.reportTo })}`),
+      api.get(`/api/reports/by-department${queryString({ from: state.reportFrom, to: state.reportTo })}`)
+    ]);
+    const values = summary.summary || {};
+    const noShows = summary.no_shows || {};
+    const dayRows = (days.days || []).map((item) => `<tr><td>${escapeHtml(formatDate(item.day))}</td><td>${Number(item.bookings)}</td><td>${Number(item.checked_in)}</td><td>${Number(item.hours)}</td></tr>`);
+    const facilityRows = (facilities.facilities || []).map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(`${item.building} ${item.room_number}`)}</td><td>${Number(item.bookings)}</td><td>${Number(item.booked_hours)}</td></tr>`);
+    const departmentRows = (departments.departments || []).map((item) => `<tr><td>${escapeHtml(item.code)} - ${escapeHtml(item.name)}</td><td>${Number(item.bookings)}</td><td>${Number(item.booked_hours)}</td></tr>`);
+    container.innerHTML = `
+      <div class="stats-grid admin-stats">
+        <div class="stat"><strong>${Number(values.bookings || 0)}</strong><span>Bookings</span></div>
+        <div class="stat"><strong>${Number(values.confirmed || 0)}</strong><span>Confirmed</span></div>
+        <div class="stat"><strong>${Number(values.checked_in || 0)}</strong><span>Checked in</span></div>
+        <div class="stat"><strong>${Number(values.booked_hours || 0)}</strong><span>Booked hours</span></div>
+        <div class="stat"><strong>${Number(values.checkin_rate_percent || 0)}%</strong><span>Check-in rate</span></div>
+        <div class="stat"><strong>${Number(noShows.no_shows || 0)}</strong><span>No-shows</span></div>
+      </div>
+      ${academicSection('Daily activity', `${state.reportFrom} to ${state.reportTo}`, academicTable(['Day', 'Bookings', 'Checked in', 'Hours'], dayRows, 'No bookings in this range.'))}
+      <div class="admin-two-col">
+        ${academicSection('Room utilisation', 'Bookings and hours by room', academicTable(['Room', 'Location', 'Bookings', 'Hours'], facilityRows, 'No room activity.'))}
+        ${academicSection('Department usage', 'Bookings and hours by department', academicTable(['Department', 'Bookings', 'Hours'], departmentRows, 'No department activity.'))}
+      </div>`;
+  } catch (error) {
+    container.innerHTML = `<div class="notice danger">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function loadIssues() {
   content.innerHTML = `
     ${pageHeader('Room issues', 'Triage reports from students and staff.')}
@@ -929,9 +1497,9 @@ async function renderIssues() {
         <span class="item-icon">${icon('alert')}</span>
         <div class="main">
           <div class="chips" style="margin-bottom:.2rem">${badge(issue.status === 'resolved' ? 'confirmed' : issue.status === 'open' ? 'pending' : 'blocked', issue.status)}</div>
-          <h3>${escapeHtml(issue.facility_name)} · ${escapeHtml(issue.category)}</h3>
+          <h3>${escapeHtml(issue.facility_name)}  -  ${escapeHtml(issue.category)}</h3>
           <p>${escapeHtml(issue.description)}</p>
-          <p class="small muted">${escapeHtml(issue.reporter_name)} (${escapeHtml(issue.reporter_id_number)}) · ${escapeHtml(formatDate(issue.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</p>
+          <p class="small muted">${escapeHtml(issue.reporter_name)} (${escapeHtml(issue.reporter_id_number)})  -  ${escapeHtml(formatDate(issue.created_at, { dateStyle: 'medium', timeStyle: 'short' }))}</p>
         </div>
         <button class="btn ghost small" type="button" data-issue="${escapeHtml(issue.id)}">Open</button>
       </div>`).join('')}</div>` : emptyState('No issues', 'Reports submitted from room pages will appear here.');
@@ -1010,7 +1578,7 @@ async function renderStudyRequests() {
         <div class="main">
           ${badge(request.status === 'approved' ? 'confirmed' : request.status === 'rejected' ? 'cancelled' : 'pending', request.status)}
           <h3>${escapeHtml(request.user_name)} (${escapeHtml(request.id_number)})</h3>
-          <p>${escapeHtml(request.current_mode)} to ${escapeHtml(request.requested_mode)} · ${escapeHtml(request.reason)}</p>
+          <p>${escapeHtml(request.current_mode)} to ${escapeHtml(request.requested_mode)}  -  ${escapeHtml(request.reason)}</p>
           <p class="small muted">${escapeHtml(formatDate(request.created_at, { dateStyle: 'medium' }))}</p>
         </div>
         ${request.status === 'pending' ? `<button class="btn ghost small" type="button" data-study="${escapeHtml(request.id)}">Review</button>` : ''}
@@ -1080,11 +1648,11 @@ async function renderDataRequests() {
     const requests = result.requests || [];
     container.innerHTML = requests.length ? `<div class="list">${requests.map((request) => `
       <div class="list-item">
-        <span class="item-icon">${request.type === 'deletion' ? '×' : '↓'}</span>
+        <span class="item-icon">${request.type === 'deletion' ? 'x' : 'v'}</span>
         <div class="main">
           ${badge(request.status === 'completed' ? 'confirmed' : request.status === 'rejected' ? 'cancelled' : 'pending', request.status)}
           <h3>${escapeHtml(request.user_name)} (${escapeHtml(request.id_number)})</h3>
-          <p>${escapeHtml(request.type)} request · ${escapeHtml(formatDate(request.requested_at, { dateStyle: 'medium' }))}</p>
+          <p>${escapeHtml(request.type)} request  -  ${escapeHtml(formatDate(request.requested_at, { dateStyle: 'medium' }))}</p>
           ${request.notes ? `<p class="small">${escapeHtml(request.notes)}</p>` : ''}
         </div>
         <button class="btn ghost small" type="button" data-data-request="${escapeHtml(request.id)}">Process</button>
@@ -1102,7 +1670,7 @@ function processDataRequest(request) {
   const modal = openModal({
     title: 'Process data request',
     content: `
-      <p><strong>${escapeHtml(request.user_name)}</strong> · ${escapeHtml(request.type)} request</p>
+      <p><strong>${escapeHtml(request.user_name)}</strong>  -  ${escapeHtml(request.type)} request</p>
       ${request.type === 'deletion' ? '<div class="notice warning">Completing deletion anonymises the account and cannot be undone. Only a super administrator can complete it.</div>' : ''}
       <form id="data-process-form" style="margin-top:.7rem">
         <div class="field"><label>New status</label><select name="status">${['processing', 'completed', 'rejected'].map((value) => option(value, value, request.status === value)).join('')}</select></div>
@@ -1237,7 +1805,7 @@ async function renderAudit() {
         const entry = entries.find((item) => String(item.id) === button.dataset.audit);
         openModal({
           title: entry.action,
-          content: `<pre class="code-block">${escapeHtml(JSON.stringify(entry.details || {}, null, 2))}</pre><p class="small muted">${escapeHtml(entry.ip || '')} · ${escapeHtml(entry.user_agent || '')}</p>`,
+          content: `<pre class="code-block">${escapeHtml(JSON.stringify(entry.details || {}, null, 2))}</pre><p class="small muted">${escapeHtml(entry.ip || '')}  -  ${escapeHtml(entry.user_agent || '')}</p>`,
           footer: '<button type="button" class="btn secondary" data-close>Close</button>'
         });
       });
@@ -1252,6 +1820,9 @@ const loaders = {
   bookings: loadBookings,
   facilities: loadFacilities,
   users: loadUsers,
+  timetable: loadTimetable,
+  academics: loadAcademics,
+  reports: loadReports,
   issues: loadIssues,
   study: loadStudyRequests,
   data: loadDataRequests,

@@ -246,22 +246,33 @@ router.get(
   '/dashboard',
   asyncHandler(async (req, res) => {
     const params = [];
-    let deptFilter = '';
-    if (!isSuper(req.user)) {
-      params.push(req.user.department_id);
-      deptFilter = `AND f.department_id = $${params.length}`;
-    }
+    const scoped = !isSuper(req.user);
+    if (scoped) params.push(req.user.department_id);
+    const userScope = scoped ? 'AND u.department_id = $1' : '';
+    const facilityScope = scoped ? 'AND f.department_id = $1' : '';
+    const bookingScope = scoped ? 'AND COALESCE(bf.department_id, bm.department_id) = $1' : '';
+    const issueScope = scoped ? 'AND rf.department_id = $1' : '';
+    const notificationScope = scoped ? 'AND nu.department_id = $1' : '';
     const counts = await query(
       `SELECT
-         (SELECT count(*)::int FROM users WHERE is_active = true) AS users,
-         (SELECT count(*)::int FROM facilities f WHERE f.status = 'active' ${deptFilter}) AS facilities,
-         (SELECT count(*)::int FROM bookings b WHERE b.status = 'pending') AS pending_bookings,
-         (SELECT count(*)::int FROM bookings b WHERE b.status = 'confirmed' AND b.start_at::date = current_date) AS sessions_today,
-         (SELECT count(*)::int FROM room_issues WHERE status = 'open') AS open_issues,
+         (SELECT count(*)::int FROM users u WHERE u.is_active = true ${userScope}) AS users,
+         (SELECT count(*)::int FROM facilities f WHERE f.status = 'active' ${facilityScope}) AS facilities,
+         (SELECT count(*)::int FROM bookings b
+           LEFT JOIN facilities bf ON bf.id = b.facility_id
+           LEFT JOIN modules bm ON bm.id = b.module_id
+           WHERE b.status = 'pending' ${bookingScope}) AS pending_bookings,
+         (SELECT count(*)::int FROM bookings b
+           LEFT JOIN facilities bf ON bf.id = b.facility_id
+           LEFT JOIN modules bm ON bm.id = b.module_id
+           WHERE b.status = 'confirmed' AND b.start_at::date = current_date ${bookingScope}) AS sessions_today,
+         (SELECT count(*)::int FROM room_issues ri JOIN facilities rf ON rf.id = ri.facility_id
+           WHERE ri.status = 'open' ${issueScope}) AS open_issues,
          (SELECT count(*)::int FROM study_mode_requests r JOIN users u ON u.id = r.user_id
-           WHERE r.status = 'pending' AND u.role IN ('student','class_rep','deputy_rep')) AS pending_study_mode,
-         (SELECT count(*)::int FROM data_requests WHERE status = 'pending') AS pending_data_requests,
-         (SELECT count(*)::int FROM notification_queue WHERE status = 'failed') AS failed_notifications`,
+           WHERE r.status = 'pending' AND u.role IN ('student','class_rep','deputy_rep') ${userScope}) AS pending_study_mode,
+         (SELECT count(*)::int FROM data_requests r JOIN users u ON u.id = r.user_id
+           WHERE r.status = 'pending' ${userScope}) AS pending_data_requests,
+         (SELECT count(*)::int FROM notification_queue nq JOIN users nu ON nu.id = nq.user_id
+           WHERE nq.status = 'failed' ${notificationScope}) AS failed_notifications`,
       params
     );
     const alerts = await query(
@@ -1161,15 +1172,23 @@ router.patch(
     })
   ),
   asyncHandler(async (req, res) => {
+    const params = [req.params.id, req.body.status, req.user.id];
+    let scopeSql = '';
+    if (!isSuper(req.user)) {
+      params.push(req.user.department_id);
+      scopeSql = `AND f.department_id = $${params.length}`;
+    }
     const result = await query(
-      `UPDATE room_issues
+      `UPDATE room_issues i
        SET status = $2,
-           acknowledged_by = CASE WHEN $2 = 'acknowledged' THEN $3 ELSE acknowledged_by END,
-           acknowledged_at = CASE WHEN $2 = 'acknowledged' THEN now() ELSE acknowledged_at END,
-           resolved_by = CASE WHEN $2 = 'resolved' THEN $3 ELSE resolved_by END,
-           resolved_at = CASE WHEN $2 = 'resolved' THEN now() ELSE resolved_at END
-       WHERE id = $1 RETURNING *`,
-      [req.params.id, req.body.status, req.user.id]
+           acknowledged_by = CASE WHEN $2 = 'acknowledged' THEN $3 ELSE i.acknowledged_by END,
+           acknowledged_at = CASE WHEN $2 = 'acknowledged' THEN now() ELSE i.acknowledged_at END,
+           resolved_by = CASE WHEN $2 = 'resolved' THEN $3 ELSE i.resolved_by END,
+           resolved_at = CASE WHEN $2 = 'resolved' THEN now() ELSE i.resolved_at END
+       FROM facilities f
+       WHERE i.facility_id = f.id AND i.id = $1 ${scopeSql}
+       RETURNING i.*`,
+      params
     );
     if (!result.rowCount) throw new AppError(404, 'ISSUE_NOT_FOUND', 'Issue not found.');
     await auditLog({

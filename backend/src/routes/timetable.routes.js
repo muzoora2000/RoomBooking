@@ -14,6 +14,20 @@ import { createBooking } from '../services/booking.js';
 const router = express.Router();
 router.use(authenticate);
 
+function isSuper(user) {
+  return user.role === 'super_admin';
+}
+
+async function assertModuleScope(user, moduleId) {
+  const result = await query('SELECT id, department_id FROM modules WHERE id = $1', [moduleId]);
+  const module = result.rows[0];
+  if (!module) throw new AppError(404, 'MODULE_NOT_FOUND', 'Module not found.');
+  if (!isSuper(user) && module.department_id !== user.department_id) {
+    throw new AppError(403, 'DEPARTMENT_SCOPE', 'You can only manage timetable slots for modules in your department.');
+  }
+  return module;
+}
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -120,6 +134,7 @@ router.post(
     })
   ),
   asyncHandler(async (req, res) => {
+    await assertModuleScope(req.user, req.body.module_id);
     const semester = req.body.semester_id
       ? (await query('SELECT * FROM semesters WHERE id = $1', [req.body.semester_id])).rows[0]
       : await getCurrentSemester();
@@ -210,7 +225,7 @@ router.post(
       throw new AppError(400, 'CSV_INVALID', `Could not parse CSV: ${error.message}`);
     }
     if (rows.length > 500) throw new AppError(400, 'CSV_TOO_LARGE', 'Import at most 500 rows at a time.');
-    const modules = await query(`SELECT id, code FROM modules`);
+    const modules = await query(`SELECT id, code, department_id FROM modules`);
     const classes = await query(`SELECT id, code FROM classes`);
     const facilities = await query(`SELECT id, name, building, room_number FROM facilities`);
     const users = await query(`SELECT id, id_number FROM users`);
@@ -229,6 +244,9 @@ router.post(
       try {
         const module = moduleByCode.get(String(row.module_code || '').toLowerCase());
         if (!module) throw new Error(`Unknown module_code ${row.module_code}`);
+        if (!isSuper(req.user) && module.department_id !== req.user.department_id) {
+          throw new Error('Module is outside your department');
+        }
         const classRow = row.class_code ? classByCode.get(String(row.class_code).toLowerCase()) : null;
         if (row.class_code && !classRow) throw new Error(`Unknown class_code ${row.class_code}`);
         const lecturer = row.lecturer_id_number
@@ -326,9 +344,17 @@ router.delete(
   '/:id',
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const result = await query('SELECT * FROM timetable_slots WHERE id = $1', [req.params.id]);
+    const result = await query(
+      `SELECT t.*, m.department_id AS module_department_id
+       FROM timetable_slots t JOIN modules m ON m.id = t.module_id
+       WHERE t.id = $1`,
+      [req.params.id]
+    );
     const slot = result.rows[0];
     if (!slot) throw new AppError(404, 'SLOT_NOT_FOUND', 'Timetable slot not found.');
+    if (!isSuper(req.user) && slot.module_department_id !== req.user.department_id) {
+      throw new AppError(403, 'DEPARTMENT_SCOPE', 'You can only remove timetable slots for modules in your department.');
+    }
     await query('DELETE FROM timetable_slots WHERE id = $1', [slot.id]);
     if (slot.booking_id) {
       await query(

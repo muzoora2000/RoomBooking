@@ -419,7 +419,23 @@ async function createOne({
     if (isPgExclusionViolation(error)) {
       throw new AppError(409, 'TIME_CONFLICT', 'That room or lecturer was just booked by someone else. Choose another time or room.');
     }
-    throw error;
+    // PostgreSQL check constraint violation (23514) — usually the session_mode/facility/online_link combo
+    if (error?.code === '23514') {
+      throw new AppError(400, 'BOOKING_CONSTRAINT', 'The booking details are inconsistent. Physical bookings need a room, online bookings need a meeting link. Please check your selections and try again.');
+    }
+    // Column does not exist — schema migration may be needed
+    if (error?.code === '42703') {
+      throw new AppError(500, 'SCHEMA_ERROR', 'A database column is missing. Please contact the system administrator to run the latest migration.');
+    }
+    // Not-null constraint violated
+    if (error?.code === '23502') {
+      throw new AppError(400, 'MISSING_FIELD', `A required booking field is missing: ${error.column || 'unknown'}. Please fill in all required fields.`);
+    }
+    // Foreign key violation
+    if (error?.code === '23503') {
+      throw new AppError(400, 'INVALID_REFERENCE', 'One of the selected rooms, modules, or users no longer exists. Refresh the page and try again.');
+    }
+    throw new AppError(500, 'BOOKING_FAILED', `Booking could not be saved: ${error.message || 'database error'}. Please try again or contact support.`);
   }
   const row = await getBookingRow(client, id);
   return { row, status, requiresApproval, module, facility, displaced };

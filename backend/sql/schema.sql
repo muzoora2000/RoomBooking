@@ -577,6 +577,23 @@ ALTER TABLE trusted_devices  ADD COLUMN IF NOT EXISTS first_seen_at timestamptz 
 ALTER TABLE trusted_devices  ADD COLUMN IF NOT EXISTS last_used_at  timestamptz NOT NULL DEFAULT now();
 ALTER TABLE data_requests    ADD COLUMN IF NOT EXISTS requested_at  timestamptz NOT NULL DEFAULT now();
 
+-- Booking columns added after initial deployment
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booked_by_role text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS is_locked boolean NOT NULL DEFAULT false;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminder_1h_sent boolean NOT NULL DEFAULT false;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reminder_10m_sent boolean NOT NULL DEFAULT false;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS displacement_reason text;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS converted_to_online_at timestamptz;
+-- Backfill booked_by_role for any rows that have it NULL (from rows inserted before the column was added)
+UPDATE bookings SET booked_by_role = 'student' WHERE booked_by_role IS NULL;
+-- Facility columns added after initial deployment
+ALTER TABLE facilities ADD COLUMN IF NOT EXISTS requires_authorized_role boolean NOT NULL DEFAULT false;
+-- Users columns that may be missing in earlier deployments
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_link_opt_in boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS flagged_for_review boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS flagged_reason text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS anonymized_at timestamptz;
+
 -- classes.code is referenced by profiles, admin searches, imports, and schedules.
 -- Backfill existing rows, then enforce NOT NULL so the column is always usable.
 ALTER TABLE classes ADD COLUMN IF NOT EXISTS code text;

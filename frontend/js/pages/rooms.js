@@ -5,6 +5,7 @@ import {
   emptyState,
   errorMessage,
   escapeHtml,
+  formatRange,
   icon,
   loadScript,
   loadStyle,
@@ -35,8 +36,10 @@ const categoryLabels = {
 
 function roomCard(room) {
   const equipment = Array.isArray(room.equipment) ? room.equipment.filter((item) => item.quantity > 0) : [];
+  const cb = room.current_booking;
+  const inUseNow = !!cb;
   return `
-    <article class="card room-card">
+    <article class="card room-card${inUseNow ? ' room-in-use' : ''}">
       <div class="room-top">
         <span class="item-icon">${icon('pin')}</span>
         <div class="main" style="flex:1;min-width:0">
@@ -48,8 +51,9 @@ function roomCard(room) {
             <span>${icon('users')} ${Number(room.capacity)} seats</span>
           </div>
         </div>
-        ${badge(room.status)}
+        ${inUseNow ? '<span class="badge danger">In use now</span>' : badge(room.status)}
       </div>
+      ${inUseNow ? `<p class="small" style="margin:.6rem 0 0;color:var(--danger,#c0392b)">🔴 In use until ${escapeHtml(formatRange(cb.start_at, cb.end_at))} · ${escapeHtml(cb.module_code || cb.purpose || 'Reserved')}</p>` : ''}
       ${room.location_description ? `<p class="small muted" style="margin:.7rem 0 0">${escapeHtml(room.location_description)}</p>` : ''}
       ${equipment.length ? `<p class="small" style="margin:.5rem 0 0">${equipment.slice(0, 5).map((item) => `${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}`).join(' · ')}</p>` : ''}
       <div class="room-actions">

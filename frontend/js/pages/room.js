@@ -70,6 +70,17 @@ function renderRoom(upcoming) {
   if (facility.status !== 'active') {
     setWarnings(`This room is currently marked ${facility.status}. Bookings may be unavailable.`);
   }
+  // Show "currently occupied" banner if any upcoming booking is active right now
+  const nowMs = Date.now();
+  const activeNow = upcoming.find(
+    (item) => new Date(item.start_at).getTime() <= nowMs && new Date(item.end_at).getTime() > nowMs
+  );
+  if (activeNow) {
+    setWarnings(
+      `🔴 This room is currently in use: ${activeNow.module_code || activeNow.purpose || 'Reserved'} · until ${activeNow.end_local || formatDate(activeNow.end_at, { timeStyle: 'short' })}. It will be free after the session ends.`,
+      'danger'
+    );
+  }
   const bookUrl = `schedule.html?facility_id=${encodeURIComponent(facility.id)}`;
   document.getElementById('room-actions').innerHTML = `
     <a class="btn" href="${bookUrl}">Book this room</a>

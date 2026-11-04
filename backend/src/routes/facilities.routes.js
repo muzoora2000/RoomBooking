@@ -58,16 +58,17 @@ export async function listFacilities(filters = {}) {
             f.photo_url, f.last_verified_at,
             d.code AS department_code, d.name AS department_name,
             ${equipmentJson()} AS equipment,
-            -- Current booking: a confirmed/pending booking that is happening right now
+            -- Next/current booking: the soonest confirmed/pending booking that hasn't ended yet
             (SELECT row_to_json(cb) FROM (
               SELECT b.id, b.start_at, b.end_at, b.session_mode,
                      m.code AS module_code, m.name AS module_name,
-                     b.purpose
+                     b.purpose,
+                     (b.start_at <= now() AND b.end_at > now()) AS is_active_now
               FROM bookings b
               LEFT JOIN modules m ON m.id = b.module_id
               WHERE b.facility_id = f.id
                 AND b.status IN ('pending','confirmed')
-                AND b.start_at <= now() AND b.end_at > now()
+                AND b.end_at > now()
               ORDER BY b.start_at LIMIT 1
             ) cb) AS current_booking
      FROM facilities f

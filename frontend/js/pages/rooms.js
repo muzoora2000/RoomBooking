@@ -37,9 +37,10 @@ const categoryLabels = {
 function roomCard(room) {
   const equipment = Array.isArray(room.equipment) ? room.equipment.filter((item) => item.quantity > 0) : [];
   const cb = room.current_booking;
-  const inUseNow = !!cb;
+  const isActiveNow = cb?.is_active_now === true;
+  const isBooked = !!cb; // has any upcoming/active confirmed booking
   return `
-    <article class="card room-card${inUseNow ? ' room-in-use' : ''}">
+    <article class="card room-card${isBooked ? ' room-in-use' : ''}">
       <div class="room-top">
         <span class="item-icon">${icon('pin')}</span>
         <div class="main" style="flex:1;min-width:0">
@@ -51,14 +52,14 @@ function roomCard(room) {
             <span>${icon('users')} ${Number(room.capacity)} seats</span>
           </div>
         </div>
-        ${inUseNow ? '<span class="badge danger">In use now</span>' : badge(room.status)}
+        ${isBooked ? `<span class="badge danger">${isActiveNow ? 'In use now' : 'Booked'}</span>` : badge(room.status)}
       </div>
-      ${inUseNow ? `<p class="small" style="margin:.6rem 0 0;color:var(--danger,#c0392b)">🔴 In use until ${escapeHtml(formatRange(cb.start_at, cb.end_at))} · ${escapeHtml(cb.module_code || cb.purpose || 'Reserved')}</p>` : ''}
+      ${isBooked ? `<p class="small" style="margin:.6rem 0 0;color:var(--danger,#c0392b)">${isActiveNow ? '🔴 In use' : '📅 Booked'} ${escapeHtml(formatRange(cb.start_at, cb.end_at))} · ${escapeHtml(cb.module_code || cb.purpose || 'Reserved')}</p>` : ''}
       ${room.location_description ? `<p class="small muted" style="margin:.7rem 0 0">${escapeHtml(room.location_description)}</p>` : ''}
       ${equipment.length ? `<p class="small" style="margin:.5rem 0 0">${equipment.slice(0, 5).map((item) => `${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}`).join(' · ')}</p>` : ''}
       <div class="room-actions">
         <a class="btn secondary small" href="room.html?id=${encodeURIComponent(room.id)}">View room</a>
-        ${inUseNow
+        ${isBooked
           ? `<span class="btn small danger" style="cursor:default;opacity:.85" aria-disabled="true">Booked</span>`
           : `<a class="btn small" href="schedule.html?facility_id=${encodeURIComponent(room.id)}">Book</a>`}
         ${room.latitude && room.longitude ? `<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${room.latitude}&mlon=${room.longitude}#map=19/${room.latitude}/${room.longitude}">Directions</a>` : ''}

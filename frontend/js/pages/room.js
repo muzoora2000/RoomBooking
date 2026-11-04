@@ -75,17 +75,26 @@ function renderRoom(upcoming) {
   const activeNow = upcoming.find(
     (item) => new Date(item.start_at).getTime() <= nowMs && new Date(item.end_at).getTime() > nowMs
   );
+  const nextBooked = !activeNow && upcoming.find(
+    (item) => new Date(item.end_at).getTime() > nowMs
+  );
   if (activeNow) {
     setWarnings(
       `🔴 This room is currently in use: ${activeNow.module_code || activeNow.purpose || 'Reserved'} · until ${activeNow.end_local || formatDate(activeNow.end_at, { timeStyle: 'short' })}. It will be free after the session ends.`,
       'danger'
     );
+  } else if (nextBooked) {
+    setWarnings(
+      `📅 This room is booked: ${nextBooked.module_code || nextBooked.purpose || 'Reserved'} · ${nextBooked.start_local || formatDate(nextBooked.start_at, { timeStyle: 'short' })} – ${nextBooked.end_local || formatDate(nextBooked.end_at, { timeStyle: 'short' })}.`,
+      'warning'
+    );
   }
+  const isBookedOrInUse = !!(activeNow || nextBooked);
   const bookUrl = `schedule.html?facility_id=${encodeURIComponent(facility.id)}`;
   document.getElementById('room-actions').innerHTML = `
-    ${activeNow
-      ? `<span class="btn danger" style="cursor:default;opacity:.85" aria-disabled="true">🔴 Booked</span>
-         <a class="btn secondary" href="${bookUrl}">Book a future slot</a>`
+    ${isBookedOrInUse
+      ? `<span class="btn danger" style="cursor:default;opacity:.85" aria-disabled="true">${activeNow ? '🔴 In use now' : '📅 Booked'}</span>
+         <a class="btn secondary" href="${bookUrl}">Book a different slot</a>`
       : `<a class="btn" href="${bookUrl}">Book this room</a>`}
     ${roomQr.v && roomQr.s ? `<button class="btn warning" type="button" id="use-now">Use this room now</button>` : ''}
     <button class="btn secondary" type="button" id="check-in">Check in</button>`;

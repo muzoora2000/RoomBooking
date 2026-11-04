@@ -1,4 +1,5 @@
 import { api, queryString } from '../api.js';
+import { getUser } from '../auth.js';
 import {
   badge,
   debounce,
@@ -34,6 +35,17 @@ const categoryLabels = {
   library: 'Library'
 };
 
+const GENERAL_BOOKABLE = new Set(['discussion_room', 'library']);
+
+function canBookRoom(room) {
+  const user = getUser();
+  if (!user) return false; // not logged in — rooms page is public but booking needs auth
+  const isPrivileged = ['lecturer', 'class_rep', 'deputy_rep', 'department_admin', 'super_admin'].includes(user.role);
+  if (isPrivileged) return true;
+  // Students and all other roles can freely book discussion rooms and libraries
+  return GENERAL_BOOKABLE.has(room.category);
+}
+
 function roomCard(room) {
   const equipment = Array.isArray(room.equipment) ? room.equipment.filter((item) => item.quantity > 0) : [];
   const cb = room.current_booking;
@@ -61,7 +73,9 @@ function roomCard(room) {
         <a class="btn secondary small" href="room.html?id=${encodeURIComponent(room.id)}">View room</a>
         ${isBooked
           ? `<span class="btn small danger" style="cursor:default;opacity:.85" aria-disabled="true">Booked</span>`
-          : `<a class="btn small" href="schedule.html?facility_id=${encodeURIComponent(room.id)}">Book</a>`}
+          : canBookRoom(room)
+            ? `<a class="btn small" href="schedule.html?facility_id=${encodeURIComponent(room.id)}">Book</a>`
+            : `<span class="btn small secondary" style="cursor:default;opacity:.7" title="Contact your class representative to book this room type">Book via rep</span>`}
         ${room.latitude && room.longitude ? `<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${room.latitude}&mlon=${room.longitude}#map=19/${room.latitude}/${room.longitude}">Directions</a>` : ''}
       </div>
     </article>`;

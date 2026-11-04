@@ -62,13 +62,19 @@ function setDefaults() {
 }
 
 async function loadFacilities() {
+  const user = getUser();
+  const isGeneralUser = user && !['lecturer', 'class_rep', 'deputy_rep', 'department_admin', 'super_admin'].includes(user.role);
   const result = await api.get('/api/facilities');
   facilities = result.facilities || [];
+  // Students (and other non-scheduling roles) can only book discussion rooms and libraries
+  const bookableFacilities = isGeneralUser
+    ? facilities.filter((room) => ['discussion_room', 'library'].includes(room.category))
+    : facilities;
   const selected = params.get('facility_id') || facilitySelect.value;
-  facilitySelect.innerHTML = '<option value="">Choose a room</option>' + facilities.map((room) => (
+  facilitySelect.innerHTML = '<option value="">Choose a room</option>' + bookableFacilities.map((room) => (
     `<option value="${escapeHtml(room.id)}">${escapeHtml(room.name)} · ${escapeHtml(room.building)} ${escapeHtml(room.room_number)} · ${Number(room.capacity)} seats</option>`
   )).join('');
-  if (selected && facilities.some((room) => room.id === selected)) {
+  if (selected && bookableFacilities.some((room) => room.id === selected)) {
     facilitySelect.value = selected;
   }
   renderFacilityPreview();
@@ -280,7 +286,7 @@ function updateCategoryHint(user) {
   if (['lecturer', 'class_rep', 'deputy_rep', 'department_admin', 'super_admin'].includes(role)) {
     hint.textContent = 'You can book any room category. Select a module above to schedule a class session.';
   } else {
-    hint.textContent = 'Students can book discussion rooms and the library. Lecture rooms and labs must be booked as a class session.';
+    hint.textContent = 'You can book any available discussion room or library space directly — no approval needed as long as it is free.';
   }
 }
 

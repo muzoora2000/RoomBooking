@@ -498,7 +498,29 @@ async function notifyCreated(row, { requiresApproval, user, displaced, walkUp })
     });
     return;
   }
+
+  // Always alert admins when a booking is confirmed so they can monitor room usage.
+  const bookerLabel = user.role.replace('_', ' ');
+  const roomLabel = row.facility_name
+    ? `${row.facility_name}${row.room_number ? ` (${row.room_number})` : ''}`
+    : 'an online session';
+  const sessionLabel = row.module_code
+    ? `${row.module_code} — ${row.module_name || 'module session'}`
+    : row.purpose || 'general room use';
+  await notifyAdmins({
+    type: 'booking_confirmed',
+    eventType: 'booking_confirmed',
+    title: `Room booked: ${roomLabel}`,
+    message: `${user.name} (${bookerLabel}) booked ${roomLabel} for ${sessionLabel} on ${formatKampalaRange(row.start_at, row.end_at)}.`,
+    severity: 'info',
+    link: '/admin.html#bookings',
+    bookingId: row.id,
+    departmentId: user.department_id || null
+  });
+
+  // Notify enrolled students (and lecturer/rep) via the session event pipeline.
   await notifySessionEvent({ bookingId: row.id, event: 'confirmed' });
+
   for (const item of displaced) {
     try {
       const { notifyDisplacedUser } = await import('./notifications.js');
@@ -1050,8 +1072,13 @@ export async function adminDisplaceBooking({ bookingId, admin, reason, req = nul
 }
 
 export async function listBookingsForUser({ user, from = null, to = null, status = null }) {
-  const params = [user.id];
-  const conditions = ['b.user_id = $1'];
+  const params = [];
+  const conditions = [];
+  // Admins see every booking; everyone else only sees their own
+  if (!isAdmin(user)) {
+    params.push(user.id);
+    conditions.push(`b.user_id = $${params.length}`);
+  }
   if (from) {
     params.push(from);
     conditions.push(`b.end_at > $${params.length}`);
@@ -1065,7 +1092,7 @@ export async function listBookingsForUser({ user, from = null, to = null, status
     conditions.push(`b.status = $${params.length}`);
   }
   const result = await query(
-    `SELECT b.id FROM bookings b WHERE ${conditions.join(' AND ')} ORDER BY b.start_at DESC LIMIT 500`,
+    `SELECT b.id FROM bookings b${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''} ORDER BY b.start_at DESC LIMIT 500`,
     params
   );
   const rows = await Promise.all(result.rows.map((row) => getBookingRow({ query }, row.id)));

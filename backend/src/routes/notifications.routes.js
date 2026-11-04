@@ -70,6 +70,17 @@ router.post(
   })
 );
 
+router.delete(
+  '/all',
+  asyncHandler(async (req, res) => {
+    const result = await query(
+      `DELETE FROM notifications WHERE user_id = $1`,
+      [req.user.id]
+    );
+    res.json({ cleared: result.rowCount });
+  })
+);
+
 router.get(
   '/push/key',
   asyncHandler(async (req, res) => {

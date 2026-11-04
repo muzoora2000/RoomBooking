@@ -230,7 +230,7 @@ function categoryAllowedForGeneralBooking(user, facility) {
     throw new AppError(
       403,
       'ROOM_CATEGORY_FORBIDDEN',
-      'Students can book discussion rooms and library spaces. Lecture rooms and labs must be booked as a class session by a lecturer, class representative, or administrator.'
+      'Only students are restricted to discussion rooms and library spaces. If you are a class representative, make sure your account has the class rep role assigned by an administrator.'
     );
   }
 }

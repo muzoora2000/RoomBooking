@@ -273,11 +273,23 @@ function showSuccess(result, recurring) {
   toast(status === 'pending' ? 'Booking request sent for approval.' : 'Room booked successfully.', 'success');
 }
 
+function updateCategoryHint(user) {
+  const hint = document.getElementById('room-category-hint');
+  if (!hint) return;
+  const role = user?.role || '';
+  if (['lecturer', 'class_rep', 'deputy_rep', 'department_admin', 'super_admin'].includes(role)) {
+    hint.textContent = 'You can book any room category. Select a module above to schedule a class session.';
+  } else {
+    hint.textContent = 'Students can book discussion rooms and the library. Lecture rooms and labs must be booked as a class session.';
+  }
+}
+
 async function start() {
   const user = await requireAuth();
   if (!user) return;
   setDefaults();
   updateMode();
+  updateCategoryHint(user);
   try {
     await Promise.all([loadFacilities(), loadModules()]);
     if (params.get('facility_id')) {

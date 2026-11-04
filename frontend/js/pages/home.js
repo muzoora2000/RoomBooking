@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { getUser, isLoggedIn, refreshMe } from '../auth.js';
+import { getUser, isLoggedIn, refreshMe, roleLabel } from '../auth.js';
 import {
   badge,
   escapeHtml,
@@ -86,7 +86,21 @@ async function load() {
   } catch (error) {
     if (error.status === 401) return;
   }
-  document.getElementById('greeting').textContent = `${greetingForHour()}, ${String(user.name || '').split(' ')[0]}`;
+  // Build a friendly first name: use first token of full name, fall back to role label
+  const firstName = (() => {
+    const parts = String(user.name || '').trim().split(/\s+/).filter(Boolean);
+    // If name exists and doesn't look like a generic system label, use first part
+    if (parts.length && !/^system$/i.test(parts[0])) return parts[0];
+    // Fall back to their role label (e.g. "Super administrator")
+    return roleLabel(user.role);
+  })();
+  document.getElementById('greeting').textContent = `${greetingForHour()}, ${firstName}`;
+
+  // Show role label as a subtitle so admins always know their access level
+  const greetingSub = document.getElementById('greeting-sub');
+  if (greetingSub) {
+    greetingSub.textContent = `${roleLabel(user.role)} · Here is what is happening on campus today.`;
+  }
   document.getElementById('quick-unread').textContent = 'Updates and reminders';
 
   const now = new Date().toISOString();

@@ -2170,9 +2170,20 @@ async function start() {
   const user = await requireAdmin();
   if (!user) return;
   state.me = user;
+  const adminFirstName = (() => {
+    const parts = String(user.name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length && !/^system$/i.test(parts[0])) return parts[0];
+    return user.role === 'super_admin' ? 'Super Admin' : 'Admin';
+  })();
+  const adminGreeting = (() => {
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Kampala', hour: '2-digit', hour12: false }).format(new Date()));
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
   document.getElementById('admin-subtitle').textContent = user.role === 'super_admin'
-    ? 'University-wide access. You can manage every department.'
-    : `Department scope: ${user.department_name || 'your department'}`;
+    ? `${adminGreeting}, ${adminFirstName}. University-wide access — you can manage every department.`
+    : `${adminGreeting}, ${adminFirstName}. Department scope: ${user.department_name || 'your department'}.`;
   if (user.role === 'super_admin') document.getElementById('settings-tab').classList.remove('hidden');
   await loadDirectory();
   const initial = location.hash.replace('#', '') || 'overview';

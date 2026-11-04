@@ -36,7 +36,7 @@ INSERT INTO users
   (id, id_number, name, email, phone, password_hash, pin_hash, role, department_id, class_id, study_mode,
    qr_token_hash, qr_handle, qr_secret, email_verified_at, consent_at, last_verified_at)
 VALUES
-  ('f1000000-0000-4000-8000-000000000001', 'SUPER001', 'System Administrator', 'super@campus.ac.ug', '+256700000001',
+  ('f1000000-0000-4000-8000-000000000001', 'SUPER001', 'Super Admin', 'super@campus.ac.ug', '+256700000001',
     crypt('ChangeMe#2026', gen_salt('bf', 10)), crypt('246810', gen_salt('bf', 10)), 'super_admin', NULL, NULL, 'physical',
     encode(digest('SAq7Xk2mP9vL4tR8wY1nZ6bC', 'sha256'), 'hex'), 'h-super-001', 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', now(), now(), now()),
   ('f1000000-0000-4000-8000-000000000002', 'ADM001', 'CS Department Admin', 'csadmin@campus.ac.ug', '+256700000002',

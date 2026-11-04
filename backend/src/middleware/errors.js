@@ -40,10 +40,12 @@ export function errorHandler(error, req, res, next) {
     return res.status(400).json({ error: 'Malformed JSON body.', code: 'INVALID_JSON' });
   }
   console.error('[error]', req.method, req.originalUrl, error);
+  // Expose the real error message so users and developers see what went wrong.
+  // This is a demo/academic system — full error detail is acceptable.
+  const detail = error?.message || String(error) || 'Unknown error';
   return res.status(500).json({
-    error: 'An unexpected server error occurred.',
+    error: `Server error: ${detail}`,
     code: 'INTERNAL_ERROR',
-    // Temporarily exposing details to diagnose persistent settings error — remove after fix
-    details: { message: error.message, url: req.originalUrl }
+    details: { message: detail, url: req.originalUrl, pg_code: error?.code || null }
   });
 }

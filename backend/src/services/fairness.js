@@ -1,3 +1,4 @@
+import { query } from '../db/pool.js';
 import { getSettings } from './settings.js';
 import { kampalaDayBounds, kampalaWeekBounds, durationMinutes, kampalaDate } from '../lib/time.js';
 import { AppError } from '../lib/errors.js';

@@ -23,8 +23,8 @@ export async function assertFairness({
   if (source !== 'manual') return;
   if (EXEMPT_ROLES.has(user.role)) return;
   const config = settings || (await getSettings());
-  const db = client || { query: null };
-  if (!db.query) throw new Error('Fairness check needs a database client');
+  const db = client || { query };
+  if (!db.query) throw new AppError(500, 'DB_CLIENT_MISSING', 'Internal error: fairness check missing database client.');
   const now = new Date();
   const duration = durationMinutes(startAt, endAt);
   if (duration <= 0) throw new AppError(400, 'INVALID_DURATION', 'End time must be after start time.');

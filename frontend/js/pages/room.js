@@ -83,7 +83,10 @@ function renderRoom(upcoming) {
   }
   const bookUrl = `schedule.html?facility_id=${encodeURIComponent(facility.id)}`;
   document.getElementById('room-actions').innerHTML = `
-    <a class="btn" href="${bookUrl}">Book this room</a>
+    ${activeNow
+      ? `<span class="btn danger" style="cursor:default;opacity:.85" aria-disabled="true">🔴 Booked</span>
+         <a class="btn secondary" href="${bookUrl}">Book a future slot</a>`
+      : `<a class="btn" href="${bookUrl}">Book this room</a>`}
     ${roomQr.v && roomQr.s ? `<button class="btn warning" type="button" id="use-now">Use this room now</button>` : ''}
     <button class="btn secondary" type="button" id="check-in">Check in</button>`;
   document.getElementById('qr-verified').classList.toggle('hidden', !(roomQr.v && roomQr.s));

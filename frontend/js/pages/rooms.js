@@ -58,7 +58,9 @@ function roomCard(room) {
       ${equipment.length ? `<p class="small" style="margin:.5rem 0 0">${equipment.slice(0, 5).map((item) => `${escapeHtml(item.name)}${item.quantity > 1 ? ` x${item.quantity}` : ''}`).join(' · ')}</p>` : ''}
       <div class="room-actions">
         <a class="btn secondary small" href="room.html?id=${encodeURIComponent(room.id)}">View room</a>
-        <a class="btn small" href="schedule.html?facility_id=${encodeURIComponent(room.id)}">Book</a>
+        ${inUseNow
+          ? `<span class="btn small danger" style="cursor:default;opacity:.85" aria-disabled="true">Booked</span>`
+          : `<a class="btn small" href="schedule.html?facility_id=${encodeURIComponent(room.id)}">Book</a>`}
         ${room.latitude && room.longitude ? `<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${room.latitude}&mlon=${room.longitude}#map=19/${room.latitude}/${room.longitude}">Directions</a>` : ''}
       </div>
     </article>`;

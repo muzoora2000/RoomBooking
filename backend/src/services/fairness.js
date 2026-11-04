@@ -65,16 +65,19 @@ export async function assertFairness({
   }
   const day = kampalaDayBounds(kampalaDate(startAt));
   const week = kampalaWeekBounds(startAt);
+  // $1=user.id  $2=day.start  $3=day.end  $4=week.start  $5=week.end  $6=excludeBookingId
+  // All six parameters are referenced in the SQL — no gaps that would cause
+  // "could not determine data type of parameter $N" in PostgreSQL.
   const usage = await db.query(
     `SELECT
-       COALESCE(SUM(EXTRACT(EPOCH FROM (end_at - start_at)) / 3600) FILTER (WHERE start_at < $4 AND end_at > $3),0)::float AS day_hours,
-       COALESCE(SUM(EXTRACT(EPOCH FROM (end_at - start_at)) / 3600) FILTER (WHERE start_at < $6 AND end_at > $5),0)::float AS week_hours
+       COALESCE(SUM(EXTRACT(EPOCH FROM (end_at - start_at)) / 3600) FILTER (WHERE start_at < $3 AND end_at > $2),0)::float AS day_hours,
+       COALESCE(SUM(EXTRACT(EPOCH FROM (end_at - start_at)) / 3600) FILTER (WHERE start_at < $5 AND end_at > $4),0)::float AS week_hours
      FROM bookings
      WHERE user_id = $1 AND facility_id IS NOT NULL
        AND status IN ('pending','confirmed')
-       AND start_at < $6 AND end_at > $3
-       AND ($7::uuid IS NULL OR id <> $7)`,
-    [user.id, day.start, day.end, day.start, week.start, week.end, excludeBookingId]
+       AND start_at < $5 AND end_at > $4
+       AND ($6::uuid IS NULL OR id <> $6)`,
+    [user.id, day.start, day.end, week.start, week.end, excludeBookingId]
   );
   const rows = usage.rows[0] || { day_hours: 0, week_hours: 0 };
   const newHours = duration / 60;
